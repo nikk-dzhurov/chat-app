@@ -1,0 +1,34 @@
+version: "2"
+
+services:
+    db:
+        image: "dnhsoft/mysql-utf8:5.7-mb4"
+        volumes: ["./volumes/mysql:/var/lib/mysql"]
+        environment:
+            MYSQL_USER: test
+            MYSQL_PASSWORD: test
+            MYSQL_ROOT_PASSWORD: test
+            MYSQL_DATABASE: chatapp
+
+    pma:
+        image: "phpmyadmin/phpmyadmin:latest"
+        links: ["db:db"]
+        ports: ["3051:80"]
+        environment:
+            PMA_HOST: db
+            PMA_USER: root
+            PMA_PASSWORD: test
+
+    webclient:
+        image: "node:8"
+        ports: ["3000:3000"]
+        working_dir: "/app"
+        volumes: ["../web-client/:/app"]
+        command: "yarn start"
+
+    server:
+        image: "golang:1.11"
+        ports: ["3010:80"]
+        volumes: ["../server/:/app"]
+        working_dir: "/app"
+        command: "bash -c 'while true;do sleep 10000; done'"
