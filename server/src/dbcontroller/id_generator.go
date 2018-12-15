@@ -4,7 +4,7 @@ import (
 	"math/rand"
 )
 
-const idLen = 16
+const defaultIDLen = 16
 const charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 type IDGenerator struct {
@@ -13,9 +13,13 @@ type IDGenerator struct {
 	charsetLen int
 }
 
-func NewIDGenerator() *IDGenerator {
+func NewIDGenerator(idLen int) *IDGenerator {
+	if (idLen < 8 || idLen > 32) {
+		idLen = defaultIDLen
+	}
+
 	return &IDGenerator{
-		idLen:      idLen,
+		idLen:      defaultIDLen,
 		charset:    charset,
 		charsetLen: len(charset),
 	}

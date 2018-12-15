@@ -4,11 +4,14 @@ import (
 	// used by gorm
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/gorm"
+
+	"../model"
 )
 
 type Store struct {
 	db          *gorm.DB
 	idGenerator *IDGenerator
+	hasher      *Hasher
 }
 
 func NewStore() (*Store, error) {
@@ -25,16 +28,17 @@ func NewStore() (*Store, error) {
 
 	return &Store{
 		db:          db,
-		idGenerator: NewIDGenerator(),
+		idGenerator: NewIDGenerator(-1),
+		hasher:      NewHasher(-1),
 	}, nil
 }
 
 func (store *Store) AutoMigrate() {
 	models := []interface{}{
-		&Chat{},
-		&Message{},
-		&ChatUser{},
-		&User{},
+		&model.Chat{},
+		&model.Message{},
+		&model.ChatUser{},
+		&model.User{},
 	}
 
 	store.db.AutoMigrate(models...)

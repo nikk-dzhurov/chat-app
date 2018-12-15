@@ -35,8 +35,13 @@ func main() {
 	store.AutoMigrate()
 	log.Println("Auto migration completed")
 
+	api := apiController{
+		store: store,
+	}
+
 	r := mux.NewRouter()
-	r.HandleFunc("/", helloWorldHandler)
+	r.HandleFunc("/register", api.register).Methods(http.MethodPost)
+	r.HandleFunc("/", api.helloWorldHandler)
 
 	srv := &http.Server{
 		Addr:         "0.0.0.0:" + PORT,

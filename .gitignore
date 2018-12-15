@@ -1,2 +1,16 @@
-server/server
 runtime/volumes
+
+server/src/server
+server/vendor/bin
+server/vendor/pkg
+
+server/vendor/src/github.com/alecthomas
+server/vendor/src/github.com/derekparker
+server/vendor/src/github.com/fatih
+server/vendor/src/github.com/mdempsky
+server/vendor/src/github.com/ramya-rao-a
+server/vendor/src/github.com/rogpeppe
+server/vendor/src/github.com/sqs
+server/vendor/src/github.com/tpng
+server/vendor/src/github.com/zmb3
+server/vendor/src/golang.org/x/tools
