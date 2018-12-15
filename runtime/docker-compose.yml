@@ -27,11 +27,11 @@ services:
         command: "yarn start"
 
     server:
-        # build: "docker/server"
-        image: "golang:1.11"
+        build: "docker/server"
+        # image: "golang:1.11"
         ports: ["3000:80"]
         volumes:
             - "../server/src/:/app"
             - "../server/vendor/:/go"
-        working_dir: "/app"
-        command: "bash -c 'while true;do sleep 10000; done'"
+        # working_dir: "/app"
+        # command: "bash -c 'while true;do sleep 10000; done'"

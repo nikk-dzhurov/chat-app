@@ -9,21 +9,37 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+
+	"./dbcontroller"
 )
 
-const gracefullShutdownTimeout = time.Second*5
-const idleTimeout = time.Second*60
-const readTimeout = time.Second*5
-const writeTimeout = time.Second*5
+const gracefullShutdownTimeout = time.Second * 5
+const idleTimeout = time.Second * 60
+const readTimeout = time.Second * 5
+const writeTimeout = time.Second * 5
+
+const PORT = "80"
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.SetOutput(os.Stdout)
+
+	store, err := dbcontroller.NewStore()
+	if err != nil {
+		log.Printf("Failed to initilize ChatApp store: %+v\n", err)
+		os.Exit(1)
+	}
+	defer store.Close()
+	log.Println("Store initialization completed")
+
+	store.AutoMigrate()
+	log.Println("Auto migration completed")
 
 	r := mux.NewRouter()
-
 	r.HandleFunc("/", helloWorldHandler)
 
 	srv := &http.Server{
-		Addr: "0.0.0.0:80",
+		Addr:         "0.0.0.0:" + PORT,
 		WriteTimeout: writeTimeout,
 		ReadTimeout:  readTimeout,
 		IdleTimeout:  idleTimeout,
@@ -31,25 +47,25 @@ func main() {
 	}
 
 	go func() {
+		log.Println("Listen on port:" + PORT)
 		if err := srv.ListenAndServe(); err != nil {
 			log.Println(err)
 		}
 	}()
 
 	c := make(chan os.Signal, 1)
-	// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
+	// Accept graceful shutdowns when quit via SIGINT (Ctrl+C)
 	// SIGKILL, SIGQUIT or SIGTERM (Ctrl+/) will not be caught.
 	signal.Notify(c, os.Interrupt)
 
 	<-c
 
-	log.Println("shutting down...")
+	log.Println("Server is shutting down...")
 	ctx, cancel := context.WithTimeout(context.Background(), gracefullShutdownTimeout)
 	defer cancel()
 
 	srv.Shutdown(ctx)
-
-	log.Println("bye")
+	log.Println("Bye")
 
 	os.Exit(0)
 }

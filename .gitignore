@@ -1,3 +1,2 @@
-server/app
+server/server
 runtime/volumes
-runtime/docker
