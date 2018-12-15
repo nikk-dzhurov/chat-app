@@ -20,21 +20,29 @@ type ErrorMessage struct {
 	Message string `json:"message"`
 }
 
+func (c *apiController) readData(data io.Reader, result interface{}) error {
+	return parseJSONData(data, result)
+}
+
+func (c *apiController) writeResponse(w http.ResponseWriter, statusCode int, data interface{}) {
+	writeJSONResponse(w, statusCode, data)
+}
+
 func (c *apiController) helloWorldHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("<h1>Hello, World!</h1>"))
 }
 
 func (c *apiController) register(w http.ResponseWriter, r *http.Request) {
 	user := model.User{}
-	err := parseJSONData(r.Body, &user)
+	err := c.readData(r.Body, &user)
 	if err != nil {
 		log.Println(err)
-		writeResponse(w, http.StatusBadRequest, ErrorMessage{"Invalid Request"})
+		c.writeResponse(w, http.StatusBadRequest, ErrorMessage{"Invalid Request"})
 		return
 	}
 
 
-	writeResponse(w, http.StatusOK, user)
+	c.writeResponse(w, http.StatusOK, user)
 }
 
 func parseJSONData(data io.Reader, result interface{}) error {
@@ -51,7 +59,7 @@ func parseJSONData(data io.Reader, result interface{}) error {
 	return nil
 }
 
-func writeResponse(w http.ResponseWriter, statusCode int, data interface{}) {
+func writeJSONResponse(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.WriteHeader(statusCode)
 	if data == nil {
 		return
