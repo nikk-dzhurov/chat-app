@@ -7,7 +7,7 @@ import (
 )
 
 type ChatRepo struct {
-	BaseRepo
+	BaseEntityRepo
 }
 
 func (r *ChatRepo) Create(chat *model.Chat) (error) {
@@ -57,9 +57,7 @@ func (r *ChatRepo) Exists(id string) (bool, error) {
 		return true, err
 	}
 
-	if count == 0 {
-		return false, nil
-	}
+	exists := count > 0
 
-	return true, nil
+	return exists, nil
 }

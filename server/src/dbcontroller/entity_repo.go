@@ -2,16 +2,16 @@ package dbcontroller
 
 import "github.com/jinzhu/gorm"
 
-type Repo interface {
+type EntityRepo interface {
 	Exists(string) (bool, error)
 }
 
-type BaseRepo struct {
+type BaseEntityRepo struct {
 	db          *gorm.DB
 	idGenerator *IDGenerator
 }
 
-func (r *BaseRepo) Get(id string, result interface{}) error {
+func (r *BaseEntityRepo) Get(id string, result interface{}) error {
 	err := r.db.Where("id = ?", id).First(result).Error
 	if err != nil {
 		return err
@@ -20,7 +20,7 @@ func (r *BaseRepo) Get(id string, result interface{}) error {
 	return nil
 }
 
-func (br *BaseRepo) GetValidID(r Repo) (string, error) {
+func (br *BaseEntityRepo) GetValidID(r EntityRepo) (string, error) {
 	id := ""
 	exists := true
 	var err error

@@ -1,0 +1,57 @@
+package dbcontroller
+
+import (
+	"time"
+
+	"../model"
+	"github.com/jinzhu/gorm"
+)
+
+type ChatUserRepo struct {
+	db          *gorm.DB
+	idGenerator *IDGenerator
+}
+
+func (r *ChatUserRepo) Get(chatID, userID string, chatUser *model.ChatUser) error {
+	return r.db.Where("chat_id = ? AND user_id = ?", chatID, userID).First(chatUser).Error
+}
+
+func (r *ChatUserRepo) ListByChatID(chatID string, chatUsers *[]model.ChatUser) error {
+	return r.db.Where("chat_id = ?", chatID).Find(&chatUsers).Error
+}
+
+func (r *ChatUserRepo) ListByUserID(userID string, chatUsers *[]model.ChatUser) error {
+	return r.db.Where("user_id = ?", userID).Find(&chatUsers).Error
+}
+
+func (r *ChatUserRepo) Create(chatUser *model.ChatUser) error {
+
+	now := time.Now()
+	chatUser.CreatedAt = &now
+
+	return r.db.Create(chatUser).Error
+}
+
+func (r *ChatUserRepo) Delete(chatUser *model.ChatUser) error {
+
+	oldChatUser := model.ChatUser{}
+	err := r.Get(chatUser.ChatID, chatUser.UserID, &oldChatUser)
+	if err != nil {
+		return err
+	}
+
+	return r.db.Delete(&oldChatUser).Error
+}
+
+func (r *ChatUserRepo) Exists(chatID, userID string) (bool, error) {
+	var count int64
+
+	err := r.db.Model(&model.ChatUser{}).Where("chat_id = ? AND user_id = ?", chatID, userID).Count(&count).Error
+	if err != nil {
+		return true, err
+	}
+
+	exists := count > 0
+
+	return exists, nil
+}

@@ -16,6 +16,7 @@ type Store struct {
 	UserRepo  *UserRepo
 	ChatRepo  *ChatRepo
 	TokenRepo *TokenRepo
+	ChatUserRepo *ChatUserRepo
 }
 
 func NewStore() (*Store, error) {
@@ -33,7 +34,7 @@ func NewStore() (*Store, error) {
 	idGenerator := NewIDGenerator(-1)
 	hasher := NewHasher(-1)
 
-	baseRepo := BaseRepo{
+	baseRepo := BaseEntityRepo{
 		db:          db,
 		idGenerator: idGenerator,
 	}
@@ -41,11 +42,15 @@ func NewStore() (*Store, error) {
 	return &Store{
 		db: db,
 		UserRepo: &UserRepo{
-			BaseRepo: baseRepo,
+			BaseEntityRepo: baseRepo,
 			hasher:      hasher,
 		},
 		ChatRepo: &ChatRepo{
-			BaseRepo: baseRepo,
+			BaseEntityRepo: baseRepo,
+		},
+		ChatUserRepo: &ChatUserRepo{
+			db:          db,
+			idGenerator: idGenerator,
 		},
 		TokenRepo: &TokenRepo{
 			db:          db,

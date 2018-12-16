@@ -56,11 +56,9 @@ func (r *TokenRepo) Exists(userID string) (bool, error) {
 		return true, err
 	}
 
-	if count == 0 {
-		return false, nil
-	}
+	exists := count > 0
 
-	return true, nil
+	return exists, nil
 }
 
 func (r *TokenRepo) Delete(t *model.AccessToken) error {

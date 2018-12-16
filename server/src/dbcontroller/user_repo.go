@@ -7,7 +7,7 @@ import (
 )
 
 type UserRepo struct {
-	BaseRepo
+	BaseEntityRepo
 	hasher      *Hasher
 }
 

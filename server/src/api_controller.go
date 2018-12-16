@@ -184,6 +184,28 @@ func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	currChatUser := model.ChatUser{
+		ChatID: chat.ID,
+		UserID: currentUserID,
+	}
+	err = c.store.ChatUserRepo.Create(&currChatUser)
+	if err != nil {
+		c.writeResponse(w, http.StatusInternalServerError, ErrorMessage{IntServErr})
+		return
+	}
+
+	if chat.DirectUserID != "" {
+		directChatUser := model.ChatUser{
+			ChatID: chat.ID,
+			UserID: chat.DirectUserID,
+		}
+		err := c.store.ChatUserRepo.Create(&directChatUser)
+		if err != nil {
+			c.writeResponse(w, http.StatusInternalServerError, ErrorMessage{IntServErr})
+			return
+		}
+	}
+
 	c.writeResponse(w, http.StatusOK, chat)
 }
 
