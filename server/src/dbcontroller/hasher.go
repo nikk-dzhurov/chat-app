@@ -4,15 +4,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const defaultHashCost = 16
-
 type Hasher struct {
 	hashCost int
 }
 
 func NewHasher(hashCost int) *Hasher {
 	if (hashCost > bcrypt.MaxCost || hashCost < bcrypt.MinCost) {
-		hashCost = defaultHashCost
+		hashCost = bcrypt.DefaultCost
 	}
 
 	return &Hasher{
@@ -20,6 +18,10 @@ func NewHasher(hashCost int) *Hasher {
 	}
 }
 
-func (h Hasher) HashString(s string) ([]byte, error) {
+func (h *Hasher) HashString(s string) ([]byte, error) {
 	return bcrypt.GenerateFromPassword([]byte(s), h.hashCost)
+}
+
+func (h *Hasher) CompareHashAndPassword(hash, pass string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(pass))
 }

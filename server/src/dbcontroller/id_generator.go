@@ -37,3 +37,20 @@ func (g *IDGenerator) generate() string {
 
 	return id
 }
+
+func (g *IDGenerator) generateN(n int) string {
+	if n < 1 {
+		n = g.idLen
+	}
+
+	id := ""
+	var charIdx int
+	var randChar byte
+	for i := 0; i < n; i++ {
+		charIdx = rand.Intn(g.charsetLen)
+		randChar = g.charset[charIdx]
+		id += string(randChar)
+	}
+
+	return id
+}

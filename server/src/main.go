@@ -41,7 +41,7 @@ func main() {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/register", api.register).Methods(http.MethodPost)
-	r.HandleFunc("/", api.helloWorldHandler)
+	r.HandleFunc("/login", api.login).Methods(http.MethodPost)
 
 	srv := &http.Server{
 		Addr:         "0.0.0.0:" + PORT,
