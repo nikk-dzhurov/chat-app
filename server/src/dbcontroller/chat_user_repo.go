@@ -33,14 +33,7 @@ func (r *ChatUserRepo) Create(chatUser *model.ChatUser) error {
 }
 
 func (r *ChatUserRepo) Delete(chatUser *model.ChatUser) error {
-
-	oldChatUser := model.ChatUser{}
-	err := r.Get(chatUser.ChatID, chatUser.UserID, &oldChatUser)
-	if err != nil {
-		return err
-	}
-
-	return r.db.Delete(&oldChatUser).Error
+	return r.db.Delete(chatUser).Error
 }
 
 func (r *ChatUserRepo) Exists(chatID, userID string) (bool, error) {

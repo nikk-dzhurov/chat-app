@@ -9,7 +9,7 @@ type Hasher struct {
 }
 
 func NewHasher(hashCost int) *Hasher {
-	if (hashCost > bcrypt.MaxCost || hashCost < bcrypt.MinCost) {
+	if hashCost > bcrypt.MaxCost || hashCost < bcrypt.MinCost {
 		hashCost = bcrypt.DefaultCost
 	}
 

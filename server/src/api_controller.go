@@ -12,10 +12,12 @@ import (
 
 	"./dbcontroller"
 	"./model"
+	"github.com/gorilla/mux"
 )
 
 const IntServErr = "Internal Server Error"
 const BadRequestErr = "Bad Request"
+const NotFoundErr = "Not Found"
 
 type apiController struct {
 	store *dbcontroller.Store
@@ -204,6 +206,41 @@ func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
 			c.writeResponse(w, http.StatusInternalServerError, ErrorMessage{IntServErr})
 			return
 		}
+	}
+
+	c.writeResponse(w, http.StatusOK, chat)
+}
+
+func (c *apiController) getChat(w http.ResponseWriter, r *http.Request) {
+
+	currentUserID, err := c.authenticate(r)
+	if err != nil {
+		c.writeResponse(w, http.StatusUnauthorized, ErrorMessage{"Unauthorized"})
+		return
+	}
+
+	vars := mux.Vars(r)
+	if vars["chatID"] == "" {
+		c.writeResponse(w, http.StatusBadRequest, ErrorMessage{BadRequestErr})
+		return
+	}
+
+	exists, err := c.store.ChatUserRepo.Exists(vars["chatID"], currentUserID)
+	if err != nil {
+		c.writeResponse(w, http.StatusUnauthorized, ErrorMessage{"Unauthorized"})
+		return
+	}
+
+	if !exists {
+		c.writeResponse(w, http.StatusNotFound, ErrorMessage{NotFoundErr})
+		return
+	}
+
+	chat := model.Chat{}
+	err = c.store.ChatRepo.Get(vars["chatID"], &chat)
+	if err != nil {
+		c.writeResponse(w, http.StatusInternalServerError, ErrorMessage{IntServErr})
+		return
 	}
 
 	c.writeResponse(w, http.StatusOK, chat)

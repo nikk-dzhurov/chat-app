@@ -5,11 +5,11 @@ import (
 )
 
 type Chat struct {
-	ID        string     `json:"id" db:"id" sql:"type:varchar(16) CHARACTER SET ascii COLLATE ascii_bin; primary_key; not null;"`
-	CreatorID string     `json:"creatorId" db:"creator_id" sql:"type:varchar(16) CHARACTER SET ascii COLLATE ascii_bin; index; not null;"`
+	ID           string     `json:"id" db:"id" sql:"type:varchar(16) CHARACTER SET ascii COLLATE ascii_bin; primary_key; not null;"`
+	CreatorID    string     `json:"creatorId" db:"creator_id" sql:"type:varchar(16) CHARACTER SET ascii COLLATE ascii_bin; index; not null;"`
 	DirectUserID string     `json:"directUserId" db:"direct_user_id" sql:"type:varchar(16) CHARACTER SET ascii COLLATE ascii_bin; index;"`
-	Title     string     `json:"title" db:"title" sql:"type:varchar(256)"`
-	CreatedAt *time.Time `json:"createdAt" db:"created_at" sql:"type:datetime(3)"`
+	Title        string     `json:"title" db:"title" sql:"type:varchar(256)"`
+	CreatedAt    *time.Time `json:"createdAt" db:"created_at" sql:"type:datetime(3)"`
 }
 
 func (c Chat) TableName() string {

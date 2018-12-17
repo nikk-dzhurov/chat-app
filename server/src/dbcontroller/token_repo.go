@@ -32,17 +32,17 @@ func (r *TokenRepo) GetByUserID(userID string) (*model.AccessToken, error) {
 	return &accessToken, nil
 }
 
-func (r *TokenRepo) Create(accessToken *model.AccessToken)  error {
+func (r *TokenRepo) Create(accessToken *model.AccessToken) error {
 	token := r.idGenerator.generateN(64)
 
 	expiresAt := time.Now().Add(time.Minute * 30)
 
 	accessToken.Token = token
-accessToken.ExpiresAt = &expiresAt
+	accessToken.ExpiresAt = &expiresAt
 
 	err := r.db.Create(accessToken).Error
 	if err != nil {
-		return  err
+		return err
 	}
 
 	return nil

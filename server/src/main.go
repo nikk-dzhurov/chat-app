@@ -43,6 +43,10 @@ func main() {
 	r.HandleFunc("/register", api.register).Methods(http.MethodPost)
 	r.HandleFunc("/login", api.login).Methods(http.MethodPost)
 
+	r.HandleFunc("/chat", api.createChat).Methods(http.MethodPost)
+	r.HandleFunc("/chat/:id", api.getChat).Methods(http.MethodGet)
+	// r.HandleFunc("/chat/:id", api.updateChat).Methods(http.MethodPut)
+
 	srv := &http.Server{
 		Addr:         "0.0.0.0:" + PORT,
 		WriteTimeout: writeTimeout,

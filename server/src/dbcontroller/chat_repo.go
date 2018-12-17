@@ -10,7 +10,7 @@ type ChatRepo struct {
 	BaseEntityRepo
 }
 
-func (r *ChatRepo) Create(chat *model.Chat) (error) {
+func (r *ChatRepo) Create(chat *model.Chat) error {
 
 	now := time.Now()
 	chat.CreatedAt = &now
@@ -29,7 +29,7 @@ func (r *ChatRepo) Create(chat *model.Chat) (error) {
 	return nil
 }
 
-func (r *ChatRepo) Update(chat *model.Chat) (error) {
+func (r *ChatRepo) Update(chat *model.Chat) error {
 
 	oldChat := model.Chat{}
 	err := r.Get(chat.ID, &oldChat)
@@ -40,11 +40,10 @@ func (r *ChatRepo) Update(chat *model.Chat) (error) {
 	oldChat.Title = chat.Title
 
 	chat = &oldChat
-	err = r.db.Save(&chat).Error
+	err = r.db.Save(chat).Error
 	if err != nil {
 		return err
 	}
-
 
 	return nil
 }

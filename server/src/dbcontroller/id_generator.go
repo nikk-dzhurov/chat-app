@@ -14,7 +14,7 @@ type IDGenerator struct {
 }
 
 func NewIDGenerator(idLen int) *IDGenerator {
-	if (idLen < 8 || idLen > 32) {
+	if idLen < 8 || idLen > 32 {
 		idLen = defaultIDLen
 	}
 

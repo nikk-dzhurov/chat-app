@@ -8,7 +8,7 @@ import (
 
 type UserRepo struct {
 	BaseEntityRepo
-	hasher      *Hasher
+	hasher *Hasher
 }
 
 func (r *UserRepo) Create(user *model.User) error {
@@ -30,6 +30,25 @@ func (r *UserRepo) Create(user *model.User) error {
 	user.PasswordHash = string(hash)
 
 	err = r.db.Create(user).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *UserRepo) Update(user *model.User) error {
+
+	old := model.User{}
+	err := r.Get(user.ID, &old)
+	if err != nil {
+		return err
+	}
+
+	old.FullName = user.FullName
+
+	user = &old
+	err = r.db.Save(user).Error
 	if err != nil {
 		return err
 	}
