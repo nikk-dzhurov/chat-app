@@ -56,6 +56,10 @@ func (r *UserRepo) Update(user *model.User) error {
 	return nil
 }
 
+func (r *UserRepo) Delete(id string) error {
+	return r.db.Where("id = ?", id).Delete(model.User{}).Error
+}
+
 func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
 	user := model.User{}
 	err := r.db.Where("username = ?", username).First(&user).Error

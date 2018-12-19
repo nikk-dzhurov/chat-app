@@ -44,8 +44,16 @@ func main() {
 	r.HandleFunc("/login", api.login).Methods(http.MethodPost)
 
 	r.HandleFunc("/chat", api.createChat).Methods(http.MethodPost)
-	r.HandleFunc("/chat/:id", api.getChat).Methods(http.MethodGet)
-	// r.HandleFunc("/chat/:id", api.updateChat).Methods(http.MethodPut)
+	r.HandleFunc("/chats", api.listChats).Methods(http.MethodGet)
+	r.HandleFunc("/chat/{chatID}", api.getChat).Methods(http.MethodGet)
+	r.HandleFunc("/chat/{chatID}", api.updateChat).Methods(http.MethodPut)
+	r.HandleFunc("/chat/{chatID}", api.deleteChat).Methods(http.MethodDelete)
+
+	r.HandleFunc("/chat/{chatID}/message", api.createMessage).Methods(http.MethodPost)
+	r.HandleFunc("/chat/{chatID}/messages", api.listMessages).Methods(http.MethodGet)
+	r.HandleFunc("/chat/{chatID}/message/{messageID}", api.getMessage).Methods(http.MethodGet)
+	r.HandleFunc("/chat/{chatID}/message/{messageID}", api.updateMessage).Methods(http.MethodPut)
+	r.HandleFunc("/chat/{chatID}/message/{messageID}", api.deleteMessage).Methods(http.MethodDelete)
 
 	srv := &http.Server{
 		Addr:         "0.0.0.0:" + PORT,

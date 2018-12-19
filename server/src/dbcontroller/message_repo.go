@@ -10,6 +10,10 @@ type MessageRepo struct {
 	BaseEntityRepo
 }
 
+func (r *MessageRepo) ListByChatID(chatID string, messages *[]model.Message) error {
+	return r.db.Where("chat_id = ?", chatID).Find(&messages).Error
+}
+
 func (r *MessageRepo) Create(message *model.Message) error {
 
 	now := time.Now()
@@ -46,6 +50,14 @@ func (r *MessageRepo) Update(message *model.Message) error {
 	}
 
 	return nil
+}
+
+func (r *MessageRepo) Delete(id string) error {
+	return r.db.Where("id = ?", id).Delete(model.Message{}).Error
+}
+
+func (r *MessageRepo) DeleteByChatID(chatID string) error {
+	return r.db.Where("chat_id = ?", chatID).Delete(model.Message{}).Error
 }
 
 func (r *MessageRepo) Exists(id string) (bool, error) {

@@ -15,9 +15,12 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// Default error response messages
 const IntServErr = "Internal Server Error"
 const BadRequestErr = "Bad Request"
 const NotFoundErr = "Not Found"
+const UnauthorizedErr = "Unauthorized"
+const ForbiddenErr = "Forbidden"
 
 type apiController struct {
 	store *dbcontroller.Store
@@ -29,7 +32,7 @@ type UserWithToken struct {
 }
 
 type ErrorMessage struct {
-	Message string `json:"message"`
+	Message string `json:"errorMessage"`
 }
 
 func (c *apiController) readData(data io.Reader, result interface{}) error {
@@ -37,6 +40,32 @@ func (c *apiController) readData(data io.Reader, result interface{}) error {
 }
 
 func (c *apiController) writeResponse(w http.ResponseWriter, statusCode int, data interface{}) {
+	writeJSONResponse(w, statusCode, data)
+}
+
+func (c *apiController) writeDefaultErrorResponse(w http.ResponseWriter, statusCode int) {
+	var data interface{}
+
+	switch statusCode {
+	case http.StatusBadRequest:
+		data = ErrorMessage{BadRequestErr}
+		break
+	case http.StatusUnauthorized:
+		data = ErrorMessage{UnauthorizedErr}
+		break
+	case http.StatusForbidden:
+		data = ErrorMessage{ForbiddenErr}
+		break
+	case http.StatusNotFound:
+		data = ErrorMessage{NotFoundErr}
+		break
+	case http.StatusInternalServerError:
+		data = ErrorMessage{IntServErr}
+		break
+	default:
+		data = nil
+	}
+
 	writeJSONResponse(w, statusCode, data)
 }
 
@@ -48,7 +77,7 @@ func (c *apiController) register(w http.ResponseWriter, r *http.Request) {
 	err := c.readData(r.Body, &user)
 	if err != nil {
 		log.Println(err)
-		c.writeResponse(w, http.StatusBadRequest, ErrorMessage{"Invalid Request"})
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
 		return
 	}
 
@@ -76,7 +105,7 @@ func (c *apiController) register(w http.ResponseWriter, r *http.Request) {
 	// check if already registered
 	exists, err := c.store.UserRepo.ExistsUsername(user.Username)
 	if err != nil {
-		c.writeResponse(w, http.StatusInternalServerError, ErrorMessage{IntServErr})
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
 		return
 	} else if exists {
 		c.writeResponse(w, http.StatusBadRequest, ErrorMessage{"Already Registered"})
@@ -85,14 +114,14 @@ func (c *apiController) register(w http.ResponseWriter, r *http.Request) {
 
 	err = c.store.UserRepo.Create(&user)
 	if err != nil {
-		c.writeResponse(w, http.StatusInternalServerError, ErrorMessage{IntServErr})
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
 		return
 	}
 
 	token := model.AccessToken{UserID: user.ID}
 	err = c.store.TokenRepo.Create(&token)
 	if err != nil {
-		c.writeResponse(w, http.StatusInternalServerError, ErrorMessage{IntServErr})
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -109,12 +138,12 @@ func (c *apiController) login(w http.ResponseWriter, r *http.Request) {
 	err := c.readData(r.Body, &user)
 	if err != nil {
 		log.Println(err)
-		c.writeResponse(w, http.StatusBadRequest, ErrorMessage{BadRequestErr})
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
 		return
 	}
 
 	if user.Username == "" || user.Password == "" {
-		c.writeResponse(w, http.StatusBadRequest, ErrorMessage{BadRequestErr})
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
 		return
 	}
 
@@ -132,7 +161,7 @@ func (c *apiController) login(w http.ResponseWriter, r *http.Request) {
 	token := model.AccessToken{UserID: dbUser.ID}
 	err = c.store.TokenRepo.Create(&token)
 	if err != nil {
-		c.writeResponse(w, http.StatusInternalServerError, ErrorMessage{IntServErr})
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -148,15 +177,14 @@ func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
 
 	currentUserID, err := c.authenticate(r)
 	if err != nil {
-		c.writeResponse(w, http.StatusUnauthorized, ErrorMessage{"Unauthorized"})
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
 		return
 	}
 
 	chat := model.Chat{}
 	err = c.readData(r.Body, &chat)
 	if err != nil {
-		log.Println(err)
-		c.writeResponse(w, http.StatusBadRequest, ErrorMessage{BadRequestErr})
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
 		return
 	}
 
@@ -173,7 +201,7 @@ func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
 			err = c.store.UserRepo.Get(chat.DirectUserID, &du)
 			if err != nil {
 				log.Printf("User with id %s is not found\n", chat.DirectUserID)
-				c.writeResponse(w, http.StatusBadRequest, ErrorMessage{BadRequestErr})
+				c.writeDefaultErrorResponse(w, http.StatusBadRequest)
 				return
 			}
 		}
@@ -182,7 +210,7 @@ func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
 	chat.CreatorID = currentUserID
 	err = c.store.ChatRepo.Create(&chat)
 	if err != nil {
-		c.writeResponse(w, http.StatusInternalServerError, ErrorMessage{IntServErr})
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -192,7 +220,7 @@ func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
 	}
 	err = c.store.ChatUserRepo.Create(&currChatUser)
 	if err != nil {
-		c.writeResponse(w, http.StatusInternalServerError, ErrorMessage{IntServErr})
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -203,47 +231,366 @@ func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
 		}
 		err := c.store.ChatUserRepo.Create(&directChatUser)
 		if err != nil {
-			c.writeResponse(w, http.StatusInternalServerError, ErrorMessage{IntServErr})
+			c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
 			return
 		}
 	}
 
-	c.writeResponse(w, http.StatusOK, chat)
+	c.writeResponse(w, http.StatusCreated, chat)
+}
+
+func (c *apiController) listChats(w http.ResponseWriter, r *http.Request) {
+
+	currentUserID, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	chats := []model.Chat{}
+	err = c.store.ChatRepo.ListByUserID(currentUserID, &chats)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	c.writeResponse(w, http.StatusOK, chats)
 }
 
 func (c *apiController) getChat(w http.ResponseWriter, r *http.Request) {
 
 	currentUserID, err := c.authenticate(r)
 	if err != nil {
-		c.writeResponse(w, http.StatusUnauthorized, ErrorMessage{"Unauthorized"})
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
 		return
 	}
 
 	vars := mux.Vars(r)
 	if vars["chatID"] == "" {
-		c.writeResponse(w, http.StatusBadRequest, ErrorMessage{BadRequestErr})
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
 		return
 	}
 
 	exists, err := c.store.ChatUserRepo.Exists(vars["chatID"], currentUserID)
 	if err != nil {
-		c.writeResponse(w, http.StatusUnauthorized, ErrorMessage{"Unauthorized"})
+		c.writeDefaultErrorResponse(w, http.StatusForbidden)
 		return
 	}
 
 	if !exists {
-		c.writeResponse(w, http.StatusNotFound, ErrorMessage{NotFoundErr})
+		c.writeDefaultErrorResponse(w, http.StatusNotFound)
 		return
 	}
 
 	chat := model.Chat{}
 	err = c.store.ChatRepo.Get(vars["chatID"], &chat)
 	if err != nil {
-		c.writeResponse(w, http.StatusInternalServerError, ErrorMessage{IntServErr})
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
 		return
 	}
 
 	c.writeResponse(w, http.StatusOK, chat)
+}
+
+func (c *apiController) updateChat(w http.ResponseWriter, r *http.Request) {
+
+	currentUserID, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	chat := model.Chat{}
+	err = c.readData(r.Body, &chat)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	vars := mux.Vars(r)
+	if vars["chatID"] == "" || vars["chatID"] != chat.ID {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	// validate chat data
+	{
+		titleLen := len(chat.Title)
+		if titleLen >= 256 {
+			c.writeResponse(w, http.StatusBadRequest, ErrorMessage{"Title is not valid"})
+			return
+		}
+	}
+
+	exists, err := c.store.ChatUserRepo.Exists(vars["chatID"], currentUserID)
+	if err != nil || !exists {
+		c.writeDefaultErrorResponse(w, http.StatusNotFound)
+		return
+	}
+
+	err = c.store.ChatRepo.Update(&chat)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	c.writeResponse(w, http.StatusOK, chat)
+}
+
+func (c *apiController) deleteChat(w http.ResponseWriter, r *http.Request) {
+
+	currentUserID, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	if vars["chatID"] == "" {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	exists, err := c.store.ChatUserRepo.Exists(vars["chatID"], currentUserID)
+	if err != nil || !exists {
+		c.writeDefaultErrorResponse(w, http.StatusNotFound)
+		return
+	}
+
+	chat := model.Chat{}
+	err = c.store.ChatRepo.Get(vars["chatID"], &chat)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	if chat.CreatorID != currentUserID {
+		c.writeDefaultErrorResponse(w, http.StatusForbidden)
+		return
+	}
+
+	err = c.store.ChatUserRepo.DeleteByChatID(vars["chatID"])
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	err = c.store.ChatRepo.Delete(vars["chatID"])
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	err = c.store.MessageRepo.DeleteByChatID(vars["chatID"])
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	c.writeResponse(w, http.StatusNoContent, nil)
+}
+
+func (c *apiController) createMessage(w http.ResponseWriter, r *http.Request) {
+
+	currentUserID, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	msg := model.Message{}
+	err = c.readData(r.Body, &msg)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	vars := mux.Vars(r)
+	// Validate message data
+	{
+		if msg.ChatID != vars["chatID"] || msg.UserID != currentUserID {
+			c.writeResponse(w, http.StatusBadRequest, ErrorMessage{"Invalid message data"})
+			return
+		}
+	}
+
+	exists, err := c.store.ChatUserRepo.Exists(vars["chatID"], currentUserID)
+	if err != nil || !exists {
+		c.writeDefaultErrorResponse(w, http.StatusNotFound)
+		return
+	}
+
+	err = c.store.MessageRepo.Create(&msg)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	c.writeResponse(w, http.StatusCreated, msg)
+}
+
+func (c *apiController) listMessages(w http.ResponseWriter, r *http.Request) {
+
+	currentUserID, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	if vars["chatID"] == "" {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	exists, err := c.store.ChatUserRepo.Exists(vars["chatID"], currentUserID)
+	if err != nil || !exists {
+		c.writeDefaultErrorResponse(w, http.StatusNotFound)
+		return
+	}
+
+	messages := []model.Message{}
+	err = c.store.MessageRepo.ListByChatID(vars["chatID"], &messages)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	c.writeResponse(w, http.StatusOK, messages)
+}
+
+func (c *apiController) getMessage(w http.ResponseWriter, r *http.Request) {
+
+	currentUserID, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	if vars["chatID"] == "" || vars["messageID"] == "" {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	exists, err := c.store.ChatUserRepo.Exists(vars["chatID"], currentUserID)
+	if err != nil || !exists {
+		c.writeDefaultErrorResponse(w, http.StatusNotFound)
+		return
+	}
+
+	msg := model.Message{}
+	err = c.store.MessageRepo.Get(vars["messageID"], &msg)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	if msg.ChatID != vars["chatID"] {
+		c.writeDefaultErrorResponse(w, http.StatusNotFound)
+		return
+	}
+
+	c.writeResponse(w, http.StatusOK, msg)
+}
+
+func (c *apiController) updateMessage(w http.ResponseWriter, r *http.Request) {
+
+	currentUserID, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	msg := model.Message{}
+	err = c.readData(r.Body, &msg)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	vars := mux.Vars(r)
+	if vars["chatID"] == "" || vars["messageID"] == "" {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	exists, err := c.store.ChatUserRepo.Exists(vars["chatID"], currentUserID)
+	if err != nil || !exists {
+		c.writeDefaultErrorResponse(w, http.StatusNotFound)
+		return
+	}
+
+	old := model.Message{}
+	err = c.store.MessageRepo.Get(vars["messageID"], &old)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	if old.ChatID != vars["chatID"] {
+		c.writeDefaultErrorResponse(w, http.StatusNotFound)
+		return
+	}
+
+	if old.UserID != currentUserID {
+		c.writeDefaultErrorResponse(w, http.StatusForbidden)
+		return
+	}
+
+	err = c.store.MessageRepo.Update(&msg)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	c.writeResponse(w, http.StatusOK, msg)
+}
+
+func (c *apiController) deleteMessage(w http.ResponseWriter, r *http.Request) {
+
+	currentUserID, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	if vars["chatID"] == "" || vars["messageID"] == "" {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	exists, err := c.store.ChatUserRepo.Exists(vars["chatID"], currentUserID)
+	if err != nil || !exists {
+		c.writeDefaultErrorResponse(w, http.StatusNotFound)
+		return
+	}
+
+	msg := model.Message{}
+	err = c.store.MessageRepo.Get(vars["messageID"], &msg)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	if msg.ChatID != vars["chatID"] {
+		c.writeDefaultErrorResponse(w, http.StatusNotFound)
+		return
+	}
+
+	if msg.UserID != currentUserID {
+		c.writeDefaultErrorResponse(w, http.StatusForbidden)
+		return
+	}
+
+	err = c.store.MessageRepo.Delete(msg.ID)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	c.writeResponse(w, http.StatusNoContent, nil)
 }
 
 func (c *apiController) authenticate(req *http.Request) (string, error) {
@@ -299,6 +646,7 @@ func writeJSONResponse(w http.ResponseWriter, statusCode int, data interface{}) 
 	}
 
 	w.Write(jsonData)
+	w.Header().Set("Content-Type", "application/json")
 }
 
 func marshalJSONData(data interface{}) ([]byte, error) {

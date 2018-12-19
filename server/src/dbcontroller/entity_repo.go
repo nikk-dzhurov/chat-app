@@ -20,10 +20,6 @@ func (r *BaseEntityRepo) Get(id string, result interface{}) error {
 	return nil
 }
 
-func (r *BaseEntityRepo) Delete(entity interface{}) error {
-	return r.db.Delete(entity).Error
-}
-
 func (br *BaseEntityRepo) GetValidID(r EntityRepo) (string, error) {
 	id := ""
 	exists := true

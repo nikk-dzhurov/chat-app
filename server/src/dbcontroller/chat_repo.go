@@ -10,6 +10,10 @@ type ChatRepo struct {
 	BaseEntityRepo
 }
 
+func (r *ChatRepo) ListByUserID(userID string, chats *[]model.Chat) error {
+	return r.db.Joins("left join chat_user on chat_user.chat_id = chat.id").Where("chat_user.user_id = ?", userID).Find(&chats).Error
+}
+
 func (r *ChatRepo) Create(chat *model.Chat) error {
 
 	now := time.Now()
@@ -46,6 +50,10 @@ func (r *ChatRepo) Update(chat *model.Chat) error {
 	}
 
 	return nil
+}
+
+func (r *ChatRepo) Delete(id string) error {
+	return r.db.Where("id = ?", id).Delete(model.Chat{}).Error
 }
 
 func (r *ChatRepo) Exists(id string) (bool, error) {
