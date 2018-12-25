@@ -55,6 +55,16 @@ func (u User) TableName() string {
 	return "user"
 }
 
+type UserAvatar struct {
+	UserID    string     `json:"userId" db:"user_id" sql:"type:varchar(16) CHARACTER SET ascii COLLATE ascii_bin; primary_key; not null;"`
+	ContentType  string     `json:"contentType" db:"content_type" sql:"type:varchar(256) CHARACTER SET ascii COLLATE ascii_bin; not null;"`
+	Blob []byte `json:"blob" db:"blob" sql:"type:mediumblob"`
+}
+
+func (u UserAvatar) TableName() string {
+	return "user_avatar"
+}
+
 type AccessToken struct {
 	UserID    string     `json:"userId" db:"user_id" sql:"type:varchar(16) CHARACTER SET ascii COLLATE ascii_bin; index; not null;"`
 	Token     string     `json:"token" db:"token" sql:"type:varchar(64) CHARACTER SET ascii COLLATE ascii_bin; primary_key; not null;"`

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"./dbcontroller"
 	"./model"
@@ -22,17 +23,21 @@ const NotFoundErr = "Not Found"
 const UnauthorizedErr = "Unauthorized"
 const ForbiddenErr = "Forbidden"
 
+const MAX_BLOB_SIZE = 1024*1024*15;
+var PERMITTED_AVATAR_CONTENT_TYPES = []string{"image/jpeg", "image/png"}
+
 type apiController struct {
 	store *dbcontroller.Store
 }
 
 type UserWithToken struct {
 	model.PublicUser
-	AccessToken string `json:"accessToken"`
+	AccessToken          string     `json:"accessToken"`
+	AccessTokenExpiresAt *time.Time `json:"accessTokenExpiresAt"`
 }
 
 type ErrorMessage struct {
-	Message string `json:"errorMessage"`
+	Message string `json:"error"`
 }
 
 func (c *apiController) readData(data io.Reader, result interface{}) error {
@@ -94,12 +99,6 @@ func (c *apiController) register(w http.ResponseWriter, r *http.Request) {
 			c.writeResponse(w, http.StatusBadRequest, ErrorMessage{"Password is not valid"})
 			return
 		}
-
-		fullNameLen := len(user.FullName)
-		if fullNameLen >= 256 {
-			c.writeResponse(w, http.StatusBadRequest, ErrorMessage{"FullName is not valid"})
-			return
-		}
 	}
 
 	// check if already registered
@@ -126,8 +125,9 @@ func (c *apiController) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := &UserWithToken{
-		PublicUser:  user.PublicUser,
-		AccessToken: token.Token,
+		PublicUser:           user.PublicUser,
+		AccessToken:          token.Token,
+		AccessTokenExpiresAt: token.ExpiresAt,
 	}
 
 	c.writeResponse(w, http.StatusOK, result)
@@ -166,11 +166,29 @@ func (c *apiController) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := &UserWithToken{
-		PublicUser:  dbUser.PublicUser,
-		AccessToken: token.Token,
+		PublicUser:           dbUser.PublicUser,
+		AccessToken:          token.Token,
+		AccessTokenExpiresAt: token.ExpiresAt,
 	}
 
 	c.writeResponse(w, http.StatusOK, result)
+}
+
+func (c *apiController) logout(w http.ResponseWriter, r *http.Request) {
+
+	token, err := c.authenticateWithToken(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	err = c.store.TokenRepo.Delete(token)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	c.writeResponse(w, http.StatusNoContent, nil)
 }
 
 func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
@@ -202,6 +220,18 @@ func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Printf("User with id %s is not found\n", chat.DirectUserID)
 				c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+				return
+			}
+
+			exists, err := c.store.ChatRepo.DirectChatExists(currentUserID, chat.DirectUserID)
+			if err != nil {
+				log.Println(err)
+				c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+				return
+			}
+
+			if exists {
+				c.writeResponse(w, http.StatusBadRequest, ErrorMessage{"Direct chat already exists"})
 				return
 			}
 		}
@@ -239,6 +269,28 @@ func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
 	c.writeResponse(w, http.StatusCreated, chat)
 }
 
+func (c *apiController) listUsers(w http.ResponseWriter, r *http.Request) {
+	_, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	users := []model.User{}
+	err = c.store.UserRepo.List(&users)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	publicUsers := make([]model.PublicUser, len(users))
+	for i := range users {
+		publicUsers[i] = users[i].PublicUser
+	}
+
+	c.writeResponse(w, http.StatusOK, publicUsers)
+}
+
 func (c *apiController) listChats(w http.ResponseWriter, r *http.Request) {
 
 	currentUserID, err := c.authenticate(r)
@@ -255,6 +307,97 @@ func (c *apiController) listChats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.writeResponse(w, http.StatusOK, chats)
+}
+
+func (c *apiController) isContentTypePermitted(ct string) bool {
+	for _, pct := range PERMITTED_AVATAR_CONTENT_TYPES {
+		if ct == pct {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (c *apiController) getAvatar(w http.ResponseWriter, r *http.Request) {
+	_, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	if vars["userID"] == "" {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	exists, err := c.store.UserRepo.HasAvatar(vars["userID"])
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	if !exists {
+		c.writeDefaultErrorResponse(w, http.StatusNotFound)
+		return
+	}
+
+	avatar := model.UserAvatar{}
+	err = c.store.UserRepo.GetAvatar(vars["userID"], &avatar)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", avatar.ContentType)
+	w.Write(avatar.Blob)
+}
+
+func (c *apiController) uploadAvatar(w http.ResponseWriter, r *http.Request) {
+	currentUserID, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	if vars["userID"] == "" || currentUserID != vars["userID"] {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	avatar, err := ioutil.ReadAll(r.Body)
+	contentType := r.Header.Get("Content-Type")
+	if err != nil || len(avatar) == 0 || len(avatar) > MAX_BLOB_SIZE || len(contentType) == 0 || !c.isContentTypePermitted(contentType) {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	exists, err := c.store.UserRepo.HasAvatar(currentUserID)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	userAvatar := model.UserAvatar{
+		UserID: currentUserID,
+		ContentType: contentType,
+		Blob: avatar,
+	}
+
+	if !exists {
+		err = c.store.UserRepo.CreateAvatar(&userAvatar)
+	} else {
+		err = c.store.UserRepo.UpdateAvatar(&userAvatar)
+	}
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	c.writeResponse(w, http.StatusNoContent, nil)
 }
 
 func (c *apiController) getChat(w http.ResponseWriter, r *http.Request) {
@@ -593,7 +736,7 @@ func (c *apiController) deleteMessage(w http.ResponseWriter, r *http.Request) {
 	c.writeResponse(w, http.StatusNoContent, nil)
 }
 
-func (c *apiController) authenticate(req *http.Request) (string, error) {
+func (c *apiController) authenticateWithToken(req *http.Request) (*model.AccessToken, error) {
 	tokenString := ""
 	bearerToken := req.Header.Get("Authorization")
 	parts := strings.Split(bearerToken, " ")
@@ -602,18 +745,27 @@ func (c *apiController) authenticate(req *http.Request) (string, error) {
 	}
 
 	if tokenString == "" {
-		return "", fmt.Errorf("Access token is missing")
+		return nil, fmt.Errorf("Access token is missing")
 	}
 
 	token, err := c.store.TokenRepo.Get(tokenString)
 	if err != nil {
 		log.Println("Failed to get access token from store: ", err)
-		return "", fmt.Errorf("Access token is invalid")
+		return nil, fmt.Errorf("Access token is invalid")
 	}
 
 	if !token.IsValid() {
 		c.store.TokenRepo.Delete(token)
-		return "", fmt.Errorf("Access token is expired")
+		return nil, fmt.Errorf("Access token is expired")
+	}
+
+	return token, nil
+}
+
+func (c *apiController) authenticate(req *http.Request) (string, error) {
+	token, err := c.authenticateWithToken(req)
+	if err != nil {
+		return "", err
 	}
 
 	return token.UserID, nil
@@ -645,8 +797,8 @@ func writeJSONResponse(w http.ResponseWriter, statusCode int, data interface{}) 
 		return
 	}
 
-	w.Write(jsonData)
 	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonData)
 }
 
 func marshalJSONData(data interface{}) ([]byte, error) {

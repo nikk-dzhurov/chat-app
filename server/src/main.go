@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 
 	"./dbcontroller"
@@ -39,9 +40,21 @@ func main() {
 		store: store,
 	}
 
+	origins := []string{"http://localhost:3001"}
+	methods := []string{
+		http.MethodGet,
+		http.MethodPost,
+		http.MethodPut,
+		http.MethodDelete,
+	}
+
 	r := mux.NewRouter()
-	r.HandleFunc("/register", api.register).Methods(http.MethodPost)
 	r.HandleFunc("/login", api.login).Methods(http.MethodPost)
+	r.HandleFunc("/register", api.register).Methods(http.MethodPost)
+	r.HandleFunc("/logout", api.logout).Methods(http.MethodPost)
+	r.HandleFunc("/users", api.listUsers).Methods(http.MethodGet)
+	r.HandleFunc("/user/{userID}/avatar", api.getAvatar).Methods(http.MethodGet)
+	r.HandleFunc("/user/{userID}/avatar", api.uploadAvatar).Methods(http.MethodPost)
 
 	r.HandleFunc("/chat", api.createChat).Methods(http.MethodPost)
 	r.HandleFunc("/chats", api.listChats).Methods(http.MethodGet)
@@ -55,12 +68,16 @@ func main() {
 	r.HandleFunc("/chat/{chatID}/message/{messageID}", api.updateMessage).Methods(http.MethodPut)
 	r.HandleFunc("/chat/{chatID}/message/{messageID}", api.deleteMessage).Methods(http.MethodDelete)
 
+	corsRouter := handlers.CORS(handlers.AllowedOrigins(origins), handlers.AllowedMethods(methods), handlers.AllowedHeaders([]string{"Authorization", "Content-Type"}),
+		handlers.ExposedHeaders([]string{"Authorization", "Content-Type"}))(r)
+
+	loggedRouter := handlers.LoggingHandler(os.Stdout, corsRouter)
 	srv := &http.Server{
 		Addr:         "0.0.0.0:" + PORT,
 		WriteTimeout: writeTimeout,
 		ReadTimeout:  readTimeout,
 		IdleTimeout:  idleTimeout,
-		Handler:      r,
+		Handler:      loggedRouter,
 	}
 
 	go func() {

@@ -56,6 +56,19 @@ func (r *ChatRepo) Delete(id string) error {
 	return r.db.Where("id = ?", id).Delete(model.Chat{}).Error
 }
 
+func (r *ChatRepo) DirectChatExists(firstUserID, secondUserID string) (bool, error) {
+	var count int64
+
+	err := r.db.Model(&model.Chat{}).Where("(creator_id = ? AND direct_user_id = ?) OR (creator_id = ? AND direct_user_id = ?)", firstUserID, secondUserID, secondUserID, firstUserID).Count(&count).Error
+	if err != nil {
+		return true, err
+	}
+
+	exists := count > 0
+
+	return exists, nil
+}
+
 func (r *ChatRepo) Exists(id string) (bool, error) {
 	var count int64
 

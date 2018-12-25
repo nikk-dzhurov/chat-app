@@ -70,6 +70,7 @@ func (store *Store) AutoMigrate() {
 		&model.ChatUser{},
 		&model.User{},
 		&model.AccessToken{},
+		&model.UserAvatar{},
 	}
 
 	store.db.AutoMigrate(models...)

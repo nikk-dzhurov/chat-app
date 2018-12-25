@@ -11,10 +11,15 @@ type UserRepo struct {
 	hasher *Hasher
 }
 
+func (r *UserRepo) List(users *[]model.User) error {
+	return r.db.Find(users).Error
+}
+
 func (r *UserRepo) Create(user *model.User) error {
 
 	now := time.Now()
 	user.CreatedAt = &now
+	user.FullName = ""
 
 	var err error
 	user.ID, err = r.GetValidID(r)
@@ -106,4 +111,31 @@ func (r *UserRepo) VerifyPassword(hash, password string) bool {
 	}
 
 	return true
+}
+
+func (r *UserRepo) HasAvatar(userID string) (bool, error) {
+	var count int64
+
+	err := r.db.Model(&model.UserAvatar{}).Where("user_id = ?", userID).Count(&count).Error
+	if err != nil {
+		return true, err
+	}
+
+	if count == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (r *UserRepo) GetAvatar(userID string, avatar *model.UserAvatar) error {
+	return r.db.Where("user_id = ?", userID).First(avatar).Error
+}
+
+func (r *UserRepo) CreateAvatar(avatar *model.UserAvatar) error {
+	return r.db.Create(avatar).Error
+}
+
+func (r *UserRepo) UpdateAvatar(avatar *model.UserAvatar) error {
+	return r.db.Save(avatar).Error
 }
