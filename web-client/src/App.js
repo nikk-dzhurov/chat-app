@@ -9,6 +9,8 @@ import LoginPage from './pages/login';
 
 import container from 'container';
 import LoadingIndication from './components/loading-indication';
+import SideMenu from './components/side-menu';
+import Navbar from './components/navbar';
 
 const themes = {
 	light: createMuiTheme({
@@ -33,22 +35,29 @@ export default class App extends React.Component {
 	constructor(props) {
 		super(props);
 
-		this.state = {
+		this.defaultState = {
 			loading: true,
+			checked: false,
+			drawerOpen: false,
+			usersMap: {},
+		};
+
+		this.state = {
 			themeKey: 'light',
 			currentUser: null,
-			checked: false,
-			usersMap: {},
+			...this.defaultState,
 		};
 
 		this.logout = this.logout.bind(this);
 		this.setCurrentUser = this.setCurrentUser.bind(this);
 		this.clearCurrentUser = this.clearCurrentUser.bind(this);
+		this.toggleDrawer = this.toggleDrawer.bind(this);
+		this.updateCurrentUserData = this.updateCurrentUserData.bind(this);
 
 		container.init(this.clearCurrentUser);
+		this.wsClient = container.get('wsClient');
 		this.userClient = container.get('userClient');
 		this.chatClient = container.get('chatClient');
-
 	}
 
 	componentDidMount() {
@@ -67,9 +76,11 @@ export default class App extends React.Component {
 		let state = {
 			currentUser: user,
 			loading: false,
+			drawerOpen: false,
 		};
 
 		if (user) {
+			this.wsClient.openConnection();
 			this.loadUserData();
 			state.loading = true;
 		}
@@ -95,18 +106,21 @@ export default class App extends React.Component {
 			this.setState({
 				currentUser: user,
 			});
+
+			this.wsClient.openConnection();
+			this.loadUserData();
 		} else {
 			window.localStorage.removeItem('user');
 			this.setState({
 				currentUser: null,
 			});
-		}
 
-		this.loadUserData();
+			this.wsClient.closeConnection();
+		}
 	}
 
 	logout() {
-		this.setState({loading: true});
+		this.setState({...this.defaultState});
 		this.userClient.logout()
 			.then(() => this.setCurrentUser(null))
 			.catch(err => {
@@ -114,6 +128,25 @@ export default class App extends React.Component {
 
 				this.setCurrentUser(null);
 			});
+	}
+
+	updateCurrentUserData(userData) {
+		let data = window.localStorage.getItem('user');
+		let user = null;
+
+		if (data) {
+			try {
+				user = JSON.parse(data);
+			} catch (ex) {
+				console.error('invalid user data');
+			}
+		}
+
+		if (user && user.id === userData.id) {
+			user = {...user, ...userData};
+
+			this.setCurrentUser(user);
+		}
 	}
 
 	async loadUserData() {
@@ -142,35 +175,51 @@ export default class App extends React.Component {
 		});
 	}
 
+	toggleDrawer() {
+		this.setState({drawerOpen: !this.state.drawerOpen});
+	}
+
 	render() {
+		const {currentUser, loading} = this.state;
+		console.log(themes[this.state.themeKey]);
+
 		return (
 			<MuiThemeProvider theme={themes[this.state.themeKey]}>
-				{this.state.loading ?
-					<LoadingIndication />
-					:
-					<Router basename='/'>
-						{this.state.currentUser ?
-							<React.Fragment>
-								<Route exact path='/' component={ChatPage} />
-								<Route path='/profile' render={(props) => (
-									<UserPage
-										{...props}
-										logout={this.logout}
-									/>
-								)} />
-							</React.Fragment>
+				<Router basename='/'>
+					<React.Fragment>
+						<Navbar toggleDrawer={this.toggleDrawer} />
+						{loading ?
+							<LoadingIndication />
 							:
-							<React.Fragment>
-								<Route path='/' render={(props) => (
-									<LoginPage
-										{...props}
-										setCurrentUser={this.setCurrentUser}
+							(currentUser ?
+								<React.Fragment>
+									<SideMenu
+										isOpen={this.state.drawerOpen}
+										toggleDrawer={this.toggleDrawer}
+										currentUser={currentUser}
 									/>
-								)} />
-							</React.Fragment>
+									<Route exact path='/' component={ChatPage} />
+									<Route path='/profile' render={(props) => (
+										<UserPage
+											{...props}
+											updateCurrentUserData={this.updateCurrentUserData}
+											logout={this.logout}
+										/>
+									)} />
+								</React.Fragment>
+								:
+								<React.Fragment>
+									<Route path='/' render={(props) => (
+										<LoginPage
+											{...props}
+											setCurrentUser={this.setCurrentUser}
+										/>
+									)} />
+								</React.Fragment>
+							)
 						}
-					</Router>
-				}
+					</React.Fragment>
+				</Router>
 			</MuiThemeProvider>
 		);
 	}

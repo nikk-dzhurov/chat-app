@@ -43,7 +43,7 @@ func (r *ChatRepo) Update(chat *model.Chat) error {
 
 	oldChat.Title = chat.Title
 
-	chat = &oldChat
+	*chat = oldChat
 	err = r.db.Save(chat).Error
 	if err != nil {
 		return err

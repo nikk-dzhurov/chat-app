@@ -16,9 +16,9 @@ func (r *ChatUserRepo) Get(chatID, userID string, chatUser *model.ChatUser) erro
 	return r.db.Where("chat_id = ? AND user_id = ?", chatID, userID).First(chatUser).Error
 }
 
-// func (r *ChatUserRepo) ListByChatID(chatID string, chatUsers *[]model.ChatUser) error {
-// 	return r.db.Where("chat_id = ?", chatID).Find(&chatUsers).Error
-// }
+func (r *ChatUserRepo) ListByChatID(chatID string, chatUsers *[]model.ChatUser) error {
+	return r.db.Where("chat_id = ?", chatID).Find(&chatUsers).Error
+}
 //
 // func (r *ChatUserRepo) ListByUserID(userID string, chatUsers *[]model.ChatUser) error {
 // 	return r.db.Where("user_id = ?", userID).Find(&chatUsers).Error

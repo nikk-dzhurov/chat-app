@@ -43,7 +43,7 @@ func (r *MessageRepo) Update(message *model.Message) error {
 
 	oldMsg.Message = message.Message
 
-	message = &oldMsg
+	*message = oldMsg
 	err = r.db.Save(message).Error
 	if err != nil {
 		return err

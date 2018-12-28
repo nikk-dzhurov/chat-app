@@ -17,17 +17,28 @@ import (
 )
 
 // Default error response messages
-const IntServErr = "Internal Server Error"
-const BadRequestErr = "Bad Request"
-const NotFoundErr = "Not Found"
-const UnauthorizedErr = "Unauthorized"
-const ForbiddenErr = "Forbidden"
+const (
+	IntServErr = "Internal Server Error"
+	BadRequestErr = "Bad Request"
+	NotFoundErr = "Not Found"
+	UnauthorizedErr = "Unauthorized"
+	ForbiddenErr = "Forbidden"
+)
 
-const MAX_BLOB_SIZE = 1024*1024*15;
+// WebSocket message types
+const (
+	WSTypeMessageCreate = "message_create"
+	WSTypeMessageUpdate = "message_update"
+	WSTypeMessageDelete = "message_delete"
+)
+
+const MAX_BLOB_SIZE = 1024 * 1024 * 15
+
 var PERMITTED_AVATAR_CONTENT_TYPES = []string{"image/jpeg", "image/png"}
 
 type apiController struct {
 	store *dbcontroller.Store
+	wsHub *WSHub
 }
 
 type UserWithToken struct {
@@ -38,6 +49,12 @@ type UserWithToken struct {
 
 type ErrorMessage struct {
 	Message string `json:"error"`
+}
+
+type WSMessageData struct {
+	Type string `json:"type"`
+	ChatID string `json:"chatId"`
+	MessageID string `json:"messageId"`
 }
 
 func (c *apiController) readData(data io.Reader, result interface{}) error {
@@ -74,6 +91,40 @@ func (c *apiController) writeDefaultErrorResponse(w http.ResponseWriter, statusC
 	writeJSONResponse(w, statusCode, data)
 }
 
+func (c *apiController) wsHandler(w http.ResponseWriter, r *http.Request) {
+	protocol := r.Header.Get("Sec-WebSocket-Protocol")
+	arr := strings.Split(protocol, ", ")
+	if len(arr) != 2 || arr[0] != "access_token" {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	token, err := c.validateAccessToken(arr[1])
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	conn, err := c.wsHub.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	client := &WsClient{
+		hub: c.wsHub,
+		conn: conn,
+		send: make(chan []byte, 256),
+		userID: token.UserID,
+		accessToken: token,
+	}
+	client.hub.register <- client
+
+	// Allow collection of memory referenced by the caller by doing all work in
+	// new goroutines.
+	go client.writePump()
+	// go client.readPump()
+}
+
 func (c *apiController) register(w http.ResponseWriter, r *http.Request) {
 	usernameRe := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 	passwordRe := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
@@ -85,6 +136,8 @@ func (c *apiController) register(w http.ResponseWriter, r *http.Request) {
 		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
 		return
 	}
+
+	user.FullName = ""
 
 	// Validate user
 	{
@@ -189,6 +242,38 @@ func (c *apiController) logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.writeResponse(w, http.StatusNoContent, nil)
+}
+
+func (c *apiController) updateUser(w http.ResponseWriter, r *http.Request) {
+
+	currentUserID, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	user := model.User{}
+	err = c.readData(r.Body, &user)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	// validate userdata
+	{
+		if user.ID != currentUserID || len(user.FullName) > 255 {
+			c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+			return
+		}
+	}
+
+	err = c.store.UserRepo.Update(&user)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	c.writeResponse(w, http.StatusOK, user.PublicUser)
 }
 
 func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
@@ -382,9 +467,9 @@ func (c *apiController) uploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userAvatar := model.UserAvatar{
-		UserID: currentUserID,
+		UserID:      currentUserID,
 		ContentType: contentType,
-		Blob: avatar,
+		Blob:        avatar,
 	}
 
 	if !exists {
@@ -569,7 +654,26 @@ func (c *apiController) createMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c.broadcastMessageChange(&msg, WSTypeMessageCreate)
+
 	c.writeResponse(w, http.StatusCreated, msg)
+}
+
+func (c *apiController) broadcastMessageChange(msg *model.Message, messageType string) {
+	chatUsers := []model.ChatUser{}
+	err := c.store.ChatUserRepo.ListByChatID(msg.ChatID, &chatUsers)
+	if err == nil && len(chatUsers) > 0 {
+		userIDs := []string{}
+		for i := range chatUsers {
+			userIDs = append(userIDs, chatUsers[i].UserID)
+		}
+
+		c.wsHub.broadcastData(userIDs, &WSMessageData{
+			Type: messageType,
+			MessageID: msg.ID,
+			ChatID: msg.ChatID,
+		})
+	}
 }
 
 func (c *apiController) listMessages(w http.ResponseWriter, r *http.Request) {
@@ -687,6 +791,8 @@ func (c *apiController) updateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c.broadcastMessageChange(&msg, WSTypeMessageUpdate)
+
 	c.writeResponse(w, http.StatusOK, msg)
 }
 
@@ -733,6 +839,8 @@ func (c *apiController) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c.broadcastMessageChange(&msg, WSTypeMessageDelete)
+
 	c.writeResponse(w, http.StatusNoContent, nil)
 }
 
@@ -744,6 +852,10 @@ func (c *apiController) authenticateWithToken(req *http.Request) (*model.AccessT
 		tokenString = parts[1]
 	}
 
+	return c.validateAccessToken(tokenString)
+}
+
+func (c *apiController) validateAccessToken(tokenString string) (*model.AccessToken, error) {
 	if tokenString == "" {
 		return nil, fmt.Errorf("Access token is missing")
 	}

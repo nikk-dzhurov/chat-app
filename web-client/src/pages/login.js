@@ -5,6 +5,7 @@ import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
 import Tab from '@material-ui/core/Tab';
 import Tabs from '@material-ui/core/Tabs';
+import Typography from '@material-ui/core/Typography';
 import {withStyles} from '@material-ui/core/styles';
 
 import container from '../container';
@@ -13,9 +14,25 @@ import LoadingIndication from '../components/loading-indication';
 const styles = theme => ({
 	container: {
 		display: 'flex',
-		flexDirection: 'column',
-		alignItems: 'center',
+		flexDirection: 'row',
 		justifyContent: 'center',
+		alignItems: 'center',
+		marginTop: 24,
+	},
+	innerContainer: {
+		flexGrow: 1,
+		maxWidth: 500,
+		display: 'flex',
+		alignSelf: 'center',
+		alignItems: 'center',
+		flexDirection: 'column',
+	},
+	formFields: {
+		marginTop: 10,
+		padding: 16,
+	},
+	buttonsContainer: {
+		alignSelf: 'flex-end',
 	},
 	textField: {
 		marginLeft: theme.spacing.unit,
@@ -32,7 +49,8 @@ const BASE_HELPER_TEXT = 'You can use only a-z, A-Z, 0-9, \'-\' and \'_\' charac
 class Login extends React.Component {
 	constructor(props) {
 		super(props);
-		this.defaultErrors = {
+		this.defaultErrorsState = {
+			hasError: false,
 			loading: false,
 			usernameError: false,
 			passwordError: false,
@@ -42,7 +60,7 @@ class Login extends React.Component {
 		this.state = {
 			clearInputsState: false,
 			tabIndex: 0,
-			...this.defaultErrors,
+			...this.defaultErrorsState,
 		};
 
 		this.userClient = container.get('userClient');
@@ -53,12 +71,44 @@ class Login extends React.Component {
 
 		this.reset = this.reset.bind(this);
 		this.submit = this.submit.bind(this);
+		this.handleKeyUp = this.handleKeyUp.bind(this);
+	}
+
+	componentDidMount() {
+		this.passwordRef.current.addEventListener('keyup', this.handleKeyUp);
+	}
+
+	componentDidUpdate(prevProps, prevState) {
+		if ((prevState.loading !== this.state.loading && !this.state.loading) || prevState.tabIndex !== this.state.tabIndex || prevState.clearInputsState !== this.state.clearInputsState) {
+			if (this.state.tabIndex === 1) {
+				this.passwordRepeatRef.current.addEventListener('keyup', this.handleKeyUp);
+			} else {
+				this.passwordRef.current.addEventListener('keyup', this.handleKeyUp);
+			}
+		}
+	}
+
+	componentWillUnmount() {
+		if (this.passwordRef.current) {
+			this.passwordRef.current.removeEventListener('keyup', this.handleKeyUp);
+		}
+
+		if (this.passwordRepeatRef.current) {
+			this.passwordRepeatRef.current.removeEventListener('keyup', this.handleKeyUp);
+		}
+	}
+
+	handleKeyUp(e) {
+		let keyCode = e.keyCode;
+		if (keyCode === 13) {
+			this.submit();
+		}
 	}
 
 	reset() {
 		this.setState({
 			clearInputsState: !this.state.clearInputsState,
-			...this.defaultErrors,
+			...this.defaultErrorsState,
 		});
 	}
 
@@ -90,7 +140,7 @@ class Login extends React.Component {
 		}
 
 		if (Object.keys(errorState).length > 0) {
-			return this.setState({...this.defaultErrors, ...errorState});
+			return this.setState({...this.defaultErrorsState, ...errorState});
 		}
 
 		this.setState({loading: true});
@@ -110,7 +160,14 @@ class Login extends React.Component {
 
 		request
 			.then(this.props.setCurrentUser)
-			.catch(console.error);
+			.catch(err => {
+				console.log('login error: ', err);
+
+				this.setState({
+					...this.defaultErrorsState,
+					hasError: true,
+				});
+			});
 	}
 
 	isTextFieldValid(message, minLength, maxLength, regex = BASE_INPUT_REGEX) {
@@ -139,25 +196,36 @@ class Login extends React.Component {
 
 	render() {
 		const {classes} = this.props;
-		const {tabIndex, loading, usernameError, passwordError, passwordRepeatError} = this.state;
+		const {tabIndex, loading, usernameError, passwordError, passwordRepeatError, hasError} = this.state;
 
 		if (loading) {
-			return <LoadingIndication />;
+			return (
+				<div className={classes.container}>
+					<LoadingIndication />
+				</div>
+			);
 		}
 
 		return (
 			<div className={classes.container}>
-				<Tabs
-					fullWidth
-					indicatorColor="primary"
-					textColor="primary"
-					value={tabIndex}
-					onChange={(_, idx) => this.setState({tabIndex: idx})}
-				>
-					<Tab label="Login" />
-					<Tab label="Sign Up" />
-				</Tabs>
-				<div style={{width: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 20}}>
+				<div className={classes.innerContainer}>
+					<Tabs
+						fullWidth
+						centered
+						indicatorColor="primary"
+						textColor="primary"
+						value={tabIndex}
+						onChange={(_, idx) => this.setState({tabIndex: idx})}
+					>
+						<Tab label="Login" />
+						<Tab label="Sign Up" />
+					</Tabs>
+					<div className={classes.formFields}>
+					{hasError &&
+							<Typography variant='body1' color='error'>
+								{`Failed to ${tabIndex === 0 ? 'login' : 'sign up'}`}
+							</Typography>
+					}
 					<TextField
 						autoFocus
 						fullWidth
@@ -185,21 +253,22 @@ class Login extends React.Component {
 						helperText={passwordError ? BASE_HELPER_TEXT + '6-255' : null}
 					/>
 					{tabIndex === 1 &&
-						<TextField
-							fullWidth
-							key={this.getKey('passwordRe')}
-							error={passwordRepeatError}
-							inputRef={this.passwordRepeatRef}
-							label="Repeat Password*"
-							type='password'
-							className={classes.textField}
-							margin="normal"
-							variant="outlined"
-							onChange={this.onChange('passwordRepeatError')}
-							helperText={passwordRepeatError ? 'Passwords mismatched' : null}
-						/>
+							<TextField
+								fullWidth
+								key={this.getKey('passwordRe')}
+								error={passwordRepeatError}
+								inputRef={this.passwordRepeatRef}
+								label="Repeat Password*"
+								type='password'
+								className={classes.textField}
+								margin="normal"
+								variant="outlined"
+								onChange={this.onChange('passwordRepeatError')}
+								helperText={passwordRepeatError ? 'Passwords mismatched' : null}
+							/>
 					}
-					<div style={{alignSelf: 'flex-end', marginTop: 20}}>
+					</div>
+					<div className={classes.buttonsContainer}>
 						<Button
 							variant="contained"
 							color="default"
@@ -220,5 +289,8 @@ class Login extends React.Component {
 		);
 	}
 }
+Login.propTypes = {
+	setCurrentUser: PropTypes.func.isRequired,
+};
 
 export default withStyles(styles)(Login);

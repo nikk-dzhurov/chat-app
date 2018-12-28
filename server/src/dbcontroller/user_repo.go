@@ -52,7 +52,7 @@ func (r *UserRepo) Update(user *model.User) error {
 
 	old.FullName = user.FullName
 
-	user = &old
+	*user = old
 	err = r.db.Save(user).Error
 	if err != nil {
 		return err

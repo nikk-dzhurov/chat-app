@@ -36,11 +36,8 @@ func main() {
 	store.AutoMigrate()
 	log.Println("Auto migration completed")
 
-	api := apiController{
-		store: store,
-	}
-
-	origins := []string{"http://localhost:3001"}
+	origins := []string{"*"}
+	// origins := []string{"http://localhost:3001"}
 	methods := []string{
 		http.MethodGet,
 		http.MethodPost,
@@ -48,13 +45,23 @@ func main() {
 		http.MethodDelete,
 	}
 
+	wsHub := newWsHub()
+	go wsHub.run()
+	api := apiController{
+		store: store,
+		wsHub: wsHub,
+	}
+
 	r := mux.NewRouter()
+	r.HandleFunc("/ws", api.wsHandler).Methods(http.MethodGet)
+
 	r.HandleFunc("/login", api.login).Methods(http.MethodPost)
 	r.HandleFunc("/register", api.register).Methods(http.MethodPost)
 	r.HandleFunc("/logout", api.logout).Methods(http.MethodPost)
 	r.HandleFunc("/users", api.listUsers).Methods(http.MethodGet)
 	r.HandleFunc("/user/{userID}/avatar", api.getAvatar).Methods(http.MethodGet)
 	r.HandleFunc("/user/{userID}/avatar", api.uploadAvatar).Methods(http.MethodPost)
+	r.HandleFunc("/user/{userID}", api.updateUser).Methods(http.MethodPut)
 
 	r.HandleFunc("/chat", api.createChat).Methods(http.MethodPost)
 	r.HandleFunc("/chats", api.listChats).Methods(http.MethodGet)

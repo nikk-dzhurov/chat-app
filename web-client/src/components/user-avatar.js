@@ -1,30 +1,44 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import Icon from '@material-ui/core/Icon';
 import Avatar from '@material-ui/core/Avatar';
 
-const UserAvatar = ({userId, size = 50}, {usersMap}) => {
+import Icon from './icon';
+import ArrowTooltip from './arrow-tooltip';
+
+const UserAvatar = ({userId, className = undefined, size = 50, withTooltip = false}, {usersMap}) => {
 	let url = null;
-	if (usersMap[userId] && usersMap[userId].blobUrl) {
-		url = usersMap[userId].blobUrl;
+	let user = usersMap[userId];
+	if (user && user.blobUrl) {
+		url = user.blobUrl;
 	}
 
+	let avatar;
 	if (url) {
-		return <Avatar style={{width: size, height: size}} alt='avatar' src={url} />;
+		avatar = <Avatar className={className} style={{width: size, height: size}} alt='avatar' src={url} />;
+	} else {
+		let fontSize = 'default';
+		if (size > 50) {
+			fontSize = 'large';
+		} else if (size < 50) {
+			fontSize = 'small';
+		}
+
+		avatar = (
+			<Avatar style={{width: size, height: size}} className={className} alt='avatar'>
+				<Icon name='person' fontSize={fontSize} />
+			</Avatar>
+		);
 	}
 
-	let fontSize = 'default';
-	if (size > 50) {
-		fontSize = 'large';
-	} else if (size < 50) {
-		fontSize = 'small';
+	if (withTooltip && user) {
+		return (
+			<ArrowTooltip tooltip={user.fullName || user.username}>
+				{avatar}
+			</ArrowTooltip>
+		);
 	}
 
-	return (
-		<Avatar style={{width: size, height: size}} alt='avatar'>
-			<Icon fontSize={fontSize}>person</Icon>
-		</Avatar>
-	);
+	return avatar;
 };
 
 UserAvatar.contextTypes = {
