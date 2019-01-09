@@ -58,10 +58,12 @@ class Navbar extends React.Component {
 					</Button>
 					{currentUser &&
 						<div className={classes.userData}>
-							<Typography variant="h6" color="inherit" className={classes.userName} noWrap>
-								{currentUser.fullName || currentUser.username}
-							</Typography>
-							<UserAvatar userId={currentUser.id} size={40} />
+							<Button color="inherit" onClick={() => this.navigateTo('/profile')}>
+								<Typography variant="h6" color="inherit" className={classes.userName} noWrap>
+									{currentUser.fullName || currentUser.username}
+								</Typography>
+								<UserAvatar userId={currentUser.id} size={40} />
+							</Button>
 						</div>
 					}
 				</Toolbar>

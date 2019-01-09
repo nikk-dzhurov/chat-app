@@ -411,7 +411,7 @@ class Chat extends React.Component {
 						>
 							{this.renderChatAvatar(c)}
 							<ListItemText
-								primary={c.title ? c.title : c.creatorId}
+								primary={this.getChatTitle(c)}
 								secondary={`Created at ${dateformat(c.createdAt, 'dd.mm.yyyy')}`}
 							/>
 						</ListItem>
@@ -419,6 +419,29 @@ class Chat extends React.Component {
 				</List>
 			</div>
 		);
+	}
+
+	getChatTitle(chat) {
+		if (chat.title) {
+			return chat.title;
+		}
+
+		const {usersMap, currentUser} = this.context;
+		let userId = chat.creatorId;
+		if (userId === currentUser.id) {
+			userId = chat.directUserId;
+		}
+
+		if (!userId) {
+			return 'Anonymous';
+		}
+
+		let user = usersMap[userId];
+		if (!user) {
+			return 'Anonymous';
+		}
+
+		return user.fullName || user.username;
 	}
 
 	shouldAddDateSeparator(prev, curr) {
