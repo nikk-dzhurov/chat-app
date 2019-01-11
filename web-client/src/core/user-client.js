@@ -9,6 +9,10 @@ export default class UserClient extends RestClient {
 		return this.doRequest('POST', 'login', data);
 	}
 
+	get(userId) {
+		return this.doRequest('GET', `user/${userId}`, null, true);
+	}
+
 	update(userId, data) {
 		return this.doRequest('PUT', `user/${userId}`, data, true);
 	}

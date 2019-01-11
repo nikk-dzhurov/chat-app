@@ -53,6 +53,7 @@ export default class App extends React.Component {
 		this.clearCurrentUser = this.clearCurrentUser.bind(this);
 		this.toggleDrawer = this.toggleDrawer.bind(this);
 		this.updateCurrentUserData = this.updateCurrentUserData.bind(this);
+		this.handleUserChage = this.handleUserChage.bind(this);
 
 		container.init(this.clearCurrentUser);
 		this.wsClient = container.get('wsClient');
@@ -86,6 +87,11 @@ export default class App extends React.Component {
 		}
 
 		this.setState(state);
+		this.wsClient.addChangeListener('user', this.handleUserChage);
+	}
+
+	componentWillUnmount() {
+		this.wsClient.removeChangeListener('user', this.handleUserChage);
 	}
 
 	getChildContext() {
@@ -116,6 +122,53 @@ export default class App extends React.Component {
 			});
 
 			this.wsClient.closeConnection();
+		}
+	}
+
+	handleUserChage(msg) {
+		switch (msg.type) {
+			case 'user_create':
+			case 'user_update':
+			case 'user_avatar_update':
+				if (!msg.userId) {
+					return;
+				}
+
+				this.userClient.get(msg.userId)
+					.then(async user => {
+						if (!user) {
+							return;
+						}
+
+						let blob = await this.userClient.getAvatar(user.id);
+						let blobUrl = null;
+						if (blob) {
+							blobUrl = URL.createObjectURL(blob);
+						}
+
+						let usersMap = {...this.state.usersMap};
+						usersMap[user.id] = {...user, blob, blobUrl};
+
+						this.setState({usersMap});
+					})
+					.catch(console.error);
+
+				break;
+			case 'user_delete':
+				if (!msg.userId) {
+					return;
+				}
+
+				if (this.state.usersMap[msg.userId]) {
+					let usersMap = {...this.state.usersMap};
+					delete usersMap[msg.userId];
+
+					this.setState({usersMap});
+				}
+
+				break;
+			default:
+				console.log('Unrecognized message type:', msg.type);
 		}
 	}
 
@@ -181,7 +234,6 @@ export default class App extends React.Component {
 
 	render() {
 		const {currentUser, loading} = this.state;
-		console.log(themes[this.state.themeKey]);
 
 		return (
 			<MuiThemeProvider theme={themes[this.state.themeKey]}>

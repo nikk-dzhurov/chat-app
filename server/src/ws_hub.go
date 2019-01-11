@@ -31,6 +31,7 @@ var (
 )
 
 type BroadcastData struct {
+	BroadcastToAll bool
 	UserIDs []string
 	Data    []byte
 }
@@ -89,14 +90,27 @@ func (h *WSHub) run() {
 				close(client.send)
 			}
 		case data := <-h.broadcast:
-			for _, userID := range data.UserIDs {
-				if userClients, ok := h.clients[userID]; ok {
-					for i := len(userClients) - 1; i >= 0; i-- {
+			if data.BroadcastToAll {
+				for userID := range h.clients {
+					for i := len(h.clients[userID]) - 1; i >= 0; i-- {
 						select {
-						case userClients[i].send <- data.Data:
+						case h.clients[userID][i].send <- data.Data:
 						default:
-							close(userClients[i].send)
-							userClients = append(userClients[:i], userClients[i+1:]...)
+							close(h.clients[userID][i].send)
+							h.clients[userID] = append(h.clients[userID][:i], h.clients[userID][i+1:]...)
+						}
+					}
+				}
+			} else {
+				for _, userID := range data.UserIDs {
+					if _, ok := h.clients[userID]; ok {
+						for i := len(h.clients[userID]) - 1; i >= 0; i-- {
+							select {
+							case h.clients[userID][i].send <- data.Data:
+							default:
+								close(h.clients[userID][i].send)
+								h.clients[userID] = append(h.clients[userID][:i], h.clients[userID][i+1:]...)
+							}
 						}
 					}
 				}
@@ -119,6 +133,26 @@ func (h *WSHub) broadcastData(userIDs []string, data interface{}) {
 
 	broadcastData := &BroadcastData{
 		UserIDs: userIDs,
+		Data:    bytes,
+	}
+
+	h.broadcast <- broadcastData
+}
+
+func (h *WSHub) broadcastDataToAll(data interface{}) {
+	if data == nil {
+		log.Println("Data is nil")
+		return
+	}
+
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		log.Println("Failed to marshal the data")
+		return
+	}
+
+	broadcastData := &BroadcastData{
+		BroadcastToAll: true,
 		Data:    bytes,
 	}
 

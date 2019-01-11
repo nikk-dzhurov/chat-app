@@ -221,38 +221,38 @@ class Login extends React.Component {
 						<Tab label="Sign Up" />
 					</Tabs>
 					<div className={classes.formFields}>
-					{hasError &&
+						{hasError &&
 							<Typography variant='body1' color='error'>
 								{`Failed to ${tabIndex === 0 ? 'login' : 'sign up'}`}
 							</Typography>
-					}
-					<TextField
-						autoFocus
-						fullWidth
-						key={this.getKey('username')}
-						error={usernameError}
-						inputRef={this.usernameRef}
-						label="Username*"
-						className={classes.textField}
-						margin="normal"
-						variant="outlined"
-						onChange={this.onChange('usernameError')}
-						helperText={usernameError ? BASE_HELPER_TEXT + '4-255' : null}
-					/>
-					<TextField
-						fullWidth
-						key={this.getKey('password')}
-						error={passwordError}
-						inputRef={this.passwordRef}
-						label="Password*"
-						type='password'
-						className={classes.textField}
-						margin="normal"
-						variant="outlined"
-						onChange={this.onChange('passwordError')}
-						helperText={passwordError ? BASE_HELPER_TEXT + '6-255' : null}
-					/>
-					{tabIndex === 1 &&
+						}
+						<TextField
+							autoFocus
+							fullWidth
+							key={this.getKey('username')}
+							error={usernameError}
+							inputRef={this.usernameRef}
+							label="Username*"
+							className={classes.textField}
+							margin="normal"
+							variant="outlined"
+							onChange={this.onChange('usernameError')}
+							helperText={usernameError ? BASE_HELPER_TEXT + '4-255' : null}
+						/>
+						<TextField
+							fullWidth
+							key={this.getKey('password')}
+							error={passwordError}
+							inputRef={this.passwordRef}
+							label="Password*"
+							type='password'
+							className={classes.textField}
+							margin="normal"
+							variant="outlined"
+							onChange={this.onChange('passwordError')}
+							helperText={passwordError ? BASE_HELPER_TEXT + '6-255' : null}
+						/>
+						{tabIndex === 1 &&
 							<TextField
 								fullWidth
 								key={this.getKey('passwordRe')}
@@ -266,7 +266,7 @@ class Login extends React.Component {
 								onChange={this.onChange('passwordRepeatError')}
 								helperText={passwordRepeatError ? 'Passwords mismatched' : null}
 							/>
-					}
+						}
 					</div>
 					<div className={classes.buttonsContainer}>
 						<Button

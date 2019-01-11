@@ -19,6 +19,7 @@ import LoadingIndication from '../components/loading-indication';
 import UserAvatar from '../components/user-avatar';
 import Icon from '../components/icon';
 import Message from '../components/message';
+import {getUserName} from '../utils';
 
 const maxMessageDuration = 60 * 1000 * 5;
 const styles = theme => ({
@@ -44,6 +45,7 @@ const styles = theme => ({
 	},
 	messageList: {
 		display: 'flex',
+		flexGrow: 1,
 		flexDirection: 'column',
 		paddingTop: 10,
 		overflowY: 'scroll',
@@ -139,20 +141,37 @@ class Chat extends React.Component {
 					.catch(console.error);
 				break;
 			case 'message_delete':
+				let messagesMap = this.removeMessage(msg.chatId, msg.messageId);
+				if (messagesMap !== this.state.messagesMap) {
+					this.setState({messagesMap});
+				}
+
 				break;
 			default:
 				console.log('Unrecognized message type:', msg.type);
 		}
 	}
 
+	removeMessageFromMap(chatId, messageId) {
+		let chatMessages = this.state.messagesMap[chatId] || [];
+		let idx = chatMessages.findIndex(m => m.id === messageId);
+		if (idx === -1) {
+			return this.state.messagesMap;
+		}
+
+		chatMessages = [...chatMessages];
+		chatMessages.splice(idx, 1);
+
+		let newMap = {...this.state.messagesMap};
+		newMap[chatId] = chatMessages;
+
+		return newMap;
+	}
+
 	async loadInitialData() {
-		const {currentUser} = this.context;
-		Promise.all([this.userClient.list(), this.chatClient.list()])
-			.then(data => {
-				data = data || [];
-				let users = data[0] || [];
-				let chats = data[1] || [];
-				users = users.filter(u => u.id !== currentUser.id);
+		this.chatClient.list()
+			.then(chats => {
+				chats = chats || [];
 
 				let currentChatId = null;
 				if (chats.length > 0) {
@@ -161,7 +180,6 @@ class Chat extends React.Component {
 
 				this.setState({
 					loading: false,
-					users,
 					chats,
 					currentChatId,
 				});
@@ -349,7 +367,28 @@ class Chat extends React.Component {
 	}
 
 	renderUsersList() {
-		const {users} = this.state;
+		const {usersMap, currentUser} = this.context;
+
+		let users = [];
+		for (let id in usersMap) {
+			if (id !== currentUser.id) {
+				users.push(usersMap[id]);
+			}
+		}
+
+		users = users.sort((u1, u2) => {
+			let name1 = getUserName(u1);
+			let name2 = getUserName(u2);
+			if (name1 < name2) {
+				return -1;
+			}
+
+			if (name1 > name2) {
+				return 1;
+			}
+
+			return 0;
+		});
 
 		return (
 			<List style={{minWidth: 360}}>
@@ -362,7 +401,7 @@ class Chat extends React.Component {
 					>
 						<UserAvatar userId={u.id} />
 						<ListItemText
-							primary={u.fullName ? u.fullName : u.username}
+							primary={getUserName(u)}
 							secondary={`Joined ${dateformat(u.createdAt, 'dd.mm.yyyy')}`}
 						/>
 					</ListItem>
@@ -398,7 +437,7 @@ class Chat extends React.Component {
 						<ListItemIcon>
 							<Icon name='add_circle' />
 						</ListItemIcon>
-						<ListItemText primary='Create new chat' />
+						<ListItemText primary='Send message' />
 					</ListItem>
 					<Divider />
 					{chats.map(c => (
@@ -436,12 +475,7 @@ class Chat extends React.Component {
 			return 'Anonymous';
 		}
 
-		let user = usersMap[userId];
-		if (!user) {
-			return 'Anonymous';
-		}
-
-		return user.fullName || user.username;
+		return getUserName(usersMap[userId]);
 	}
 
 	shouldAddDateSeparator(prev, curr) {
@@ -484,7 +518,7 @@ class Chat extends React.Component {
 			<div id='messages' className={classes.messageListContainer}>
 				<h2 style={{textAlign: 'center'}}>Messages</h2>
 				<Divider />
-				{this.state.messagesLoading ?
+				{this.state.messagesLoading || true ?
 					<LoadingIndication />
 					:
 					<div className={classes.messageList}>
@@ -503,8 +537,9 @@ class Chat extends React.Component {
 				<div className={classes.inputContainer}>
 					<TextField
 						fullWidth
-						inputRef={this.inputRef}
 						id='message-input'
+						autoComplete='off'
+						inputRef={this.inputRef}
 						placeholder={currentChatId ? 'Write a message' : 'Select or create chat first'}
 						InputProps={{
 							disabled: !currentChatId,

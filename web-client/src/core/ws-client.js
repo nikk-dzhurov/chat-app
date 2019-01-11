@@ -8,6 +8,8 @@ export default class WsClient {
 
 		this.changeListenersMap = {
 			message: [],
+			user: [],
+			chat: [],
 		};
 
 		this.handleMessage = this.handleMessage.bind(this);
@@ -17,6 +19,8 @@ export default class WsClient {
 	addChangeListener(entityType, listener) {
 		if (this.changeListenersMap[entityType] && this.changeListenersMap[entityType].indexOf(listener) === -1) {
 			this.changeListenersMap[entityType].push(listener);
+		} else {
+			console.error('Invalid entityType/Existing listener');
 		}
 	}
 
@@ -61,6 +65,24 @@ export default class WsClient {
 				case 'message_update':
 				case 'message_delete':
 					for (let cb of this.changeListenersMap.message) {
+						cb(msg);
+					}
+
+					break;
+				case 'chat_create':
+				case 'chat_update':
+				case 'chat_delete':
+					for (let cb of this.changeListenersMap.chat) {
+						cb(msg);
+					}
+
+					break;
+				case 'user_create':
+				case 'user_update':
+				case 'user_delete':
+				case 'user_avatar_update':
+				case 'user_status_change':
+					for (let cb of this.changeListenersMap.user) {
 						cb(msg);
 					}
 

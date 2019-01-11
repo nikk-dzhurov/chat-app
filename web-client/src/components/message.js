@@ -29,7 +29,7 @@ const styles = theme => ({
 		padding: '5px 10px',
 		borderRadius: 10,
 		maxWidth: '70%',
-		wordBreak: 'break-all',
+		wordBreak: 'break-word',
 		backgroundColor: theme.palette.divider,
 	},
 	textCurrentUser: {

@@ -14,22 +14,33 @@ import (
 	"./dbcontroller"
 	"./model"
 	"github.com/gorilla/mux"
+	"github.com/jinzhu/gorm"
 )
 
 // Default error response messages
 const (
-	IntServErr = "Internal Server Error"
-	BadRequestErr = "Bad Request"
-	NotFoundErr = "Not Found"
+	IntServErr      = "Internal Server Error"
+	BadRequestErr   = "Bad Request"
+	NotFoundErr     = "Not Found"
 	UnauthorizedErr = "Unauthorized"
-	ForbiddenErr = "Forbidden"
+	ForbiddenErr    = "Forbidden"
 )
 
-// WebSocket message types
+// WebSocket messages types
 const (
 	WSTypeMessageCreate = "message_create"
 	WSTypeMessageUpdate = "message_update"
 	WSTypeMessageDelete = "message_delete"
+
+	WSTypeChatCreate = "chat_create"
+	WSTypeChatUpdate = "chat_update"
+	WSTypeChatDelete = "chat_delete"
+
+	WSTypeUserCreate = "user_create"
+	WSTypeUserUpdate = "user_update"
+	WSTypeUserDelete = "user_delete"
+	WSTypeUserAvatarUpdate = "user_avatar_update"
+	WSTypeUserStatusChange = "user_status_change"
 )
 
 const MAX_BLOB_SIZE = 1024 * 1024 * 15
@@ -52,9 +63,19 @@ type ErrorMessage struct {
 }
 
 type WSMessageData struct {
-	Type string `json:"type"`
-	ChatID string `json:"chatId"`
+	Type      string `json:"type"`
+	ChatID    string `json:"chatId"`
 	MessageID string `json:"messageId"`
+}
+
+type WSUserData struct {
+	Type   string `json:"type"`
+	UserID string `json:"userId"`
+}
+
+type WSChatData struct {
+	Type   string `json:"type"`
+	ChatID string `json:"chatId"`
 }
 
 func (c *apiController) readData(data io.Reader, result interface{}) error {
@@ -111,10 +132,10 @@ func (c *apiController) wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	client := &WsClient{
-		hub: c.wsHub,
-		conn: conn,
-		send: make(chan []byte, 256),
-		userID: token.UserID,
+		hub:         c.wsHub,
+		conn:        conn,
+		send:        make(chan []byte, 256),
+		userID:      token.UserID,
 		accessToken: token,
 	}
 	client.hub.register <- client
@@ -182,6 +203,8 @@ func (c *apiController) register(w http.ResponseWriter, r *http.Request) {
 		AccessToken:          token.Token,
 		AccessTokenExpiresAt: token.ExpiresAt,
 	}
+
+	c.broadcastUserChange(user.ID, WSTypeUserCreate)
 
 	c.writeResponse(w, http.StatusOK, result)
 }
@@ -273,6 +296,8 @@ func (c *apiController) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c.broadcastUserChange(currentUserID, WSTypeUserUpdate)
+
 	c.writeResponse(w, http.StatusOK, user.PublicUser)
 }
 
@@ -308,7 +333,8 @@ func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			exists, err := c.store.ChatRepo.DirectChatExists(currentUserID, chat.DirectUserID)
+			var exists bool
+			exists, err = c.store.ChatRepo.DirectChatExists(currentUserID, chat.DirectUserID)
 			if err != nil {
 				log.Println(err)
 				c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
@@ -351,6 +377,8 @@ func (c *apiController) createChat(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	c.broadcastChatChange(chat.ID, WSTypeChatCreate)
+
 	c.writeResponse(w, http.StatusCreated, chat)
 }
 
@@ -374,6 +402,34 @@ func (c *apiController) listUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.writeResponse(w, http.StatusOK, publicUsers)
+}
+
+func (c *apiController) getUser(w http.ResponseWriter, r *http.Request) {
+	_, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	if vars["userID"] == "" {
+		c.writeDefaultErrorResponse(w, http.StatusBadRequest)
+		return
+	}
+
+	user := model.User{}
+	err = c.store.UserRepo.Get(vars["userID"], &user)
+	if err != nil {
+		if gorm.IsRecordNotFoundError(err) {
+			c.writeDefaultErrorResponse(w, http.StatusNotFound)
+			return
+		}
+
+		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
+		return
+	}
+
+	c.writeResponse(w, http.StatusOK, user.PublicUser)
 }
 
 func (c *apiController) listChats(w http.ResponseWriter, r *http.Request) {
@@ -482,6 +538,8 @@ func (c *apiController) uploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c.broadcastUserChange(currentUserID, WSTypeUserAvatarUpdate)
+
 	c.writeResponse(w, http.StatusNoContent, nil)
 }
 
@@ -562,6 +620,8 @@ func (c *apiController) updateChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c.broadcastChatChange(chat.ID, WSTypeChatUpdate)
+
 	c.writeResponse(w, http.StatusOK, chat)
 }
 
@@ -615,6 +675,8 @@ func (c *apiController) deleteChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c.broadcastChatChange(vars["chatID"], WSTypeChatDelete)
+
 	c.writeResponse(w, http.StatusNoContent, nil)
 }
 
@@ -657,23 +719,6 @@ func (c *apiController) createMessage(w http.ResponseWriter, r *http.Request) {
 	c.broadcastMessageChange(&msg, WSTypeMessageCreate)
 
 	c.writeResponse(w, http.StatusCreated, msg)
-}
-
-func (c *apiController) broadcastMessageChange(msg *model.Message, messageType string) {
-	chatUsers := []model.ChatUser{}
-	err := c.store.ChatUserRepo.ListByChatID(msg.ChatID, &chatUsers)
-	if err == nil && len(chatUsers) > 0 {
-		userIDs := []string{}
-		for i := range chatUsers {
-			userIDs = append(userIDs, chatUsers[i].UserID)
-		}
-
-		c.wsHub.broadcastData(userIDs, &WSMessageData{
-			Type: messageType,
-			MessageID: msg.ID,
-			ChatID: msg.ChatID,
-		})
-	}
 }
 
 func (c *apiController) listMessages(w http.ResponseWriter, r *http.Request) {
@@ -881,6 +926,46 @@ func (c *apiController) authenticate(req *http.Request) (string, error) {
 	}
 
 	return token.UserID, nil
+}
+
+func (c *apiController) broadcastMessageChange(msg *model.Message, messageType string) {
+	chatUsers := []model.ChatUser{}
+	err := c.store.ChatUserRepo.ListByChatID(msg.ChatID, &chatUsers)
+	if err == nil && len(chatUsers) > 0 {
+		userIDs := []string{}
+		for i := range chatUsers {
+			userIDs = append(userIDs, chatUsers[i].UserID)
+		}
+
+		c.wsHub.broadcastData(userIDs, &WSMessageData{
+			Type:      messageType,
+			MessageID: msg.ID,
+			ChatID:    msg.ChatID,
+		})
+	}
+}
+
+func (c *apiController) broadcastChatChange(chatID string, messageType string) {
+	chatUsers := []model.ChatUser{}
+	err := c.store.ChatUserRepo.ListByChatID(chatID, &chatUsers)
+	if err == nil && len(chatUsers) > 0 {
+		userIDs := []string{}
+		for i := range chatUsers {
+			userIDs = append(userIDs, chatUsers[i].UserID)
+		}
+
+		c.wsHub.broadcastData(userIDs, &WSMessageData{
+			Type:   messageType,
+			ChatID: chatID,
+		})
+	}
+}
+
+func (c *apiController) broadcastUserChange(userID string, messageType string) {
+	c.wsHub.broadcastDataToAll(&WSUserData{
+		Type:   messageType,
+		UserID: userID,
+	})
 }
 
 func parseJSONData(data io.Reader, result interface{}) error {

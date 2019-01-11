@@ -4,6 +4,7 @@ import Avatar from '@material-ui/core/Avatar';
 
 import Icon from './icon';
 import ArrowTooltip from './arrow-tooltip';
+import {getUserName} from '../utils';
 
 const UserAvatar = ({userId, className = undefined, size = 50, withTooltip = false}, {usersMap}) => {
 	let url = null;
@@ -32,7 +33,7 @@ const UserAvatar = ({userId, className = undefined, size = 50, withTooltip = fal
 
 	if (withTooltip && user) {
 		return (
-			<ArrowTooltip tooltip={user.fullName || user.username}>
+			<ArrowTooltip tooltip={getUserName(user)}>
 				{avatar}
 			</ArrowTooltip>
 		);
