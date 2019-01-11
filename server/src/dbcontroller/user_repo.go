@@ -42,6 +42,29 @@ func (r *UserRepo) Create(user *model.User) error {
 	return nil
 }
 
+func (r *UserRepo) UpdateUpdatedAt(userID string, date *time.Time) error {
+
+	if date == nil {
+		now := time.Now()
+		date = &now
+	}
+
+	user := model.User{}
+	err := r.Get(userID, &user)
+	if err != nil {
+		return err
+	}
+
+	user.UpdatedAt = date
+
+	err = r.db.Save(&user).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *UserRepo) Update(user *model.User) error {
 
 	old := model.User{}

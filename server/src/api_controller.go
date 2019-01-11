@@ -538,6 +538,8 @@ func (c *apiController) uploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c.store.UserRepo.UpdateUpdatedAt(userAvatar.UserID, nil)
+
 	c.broadcastUserChange(currentUserID, WSTypeUserAvatarUpdate)
 
 	c.writeResponse(w, http.StatusNoContent, nil)
@@ -716,6 +718,8 @@ func (c *apiController) createMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c.store.ChatRepo.UpdateUpdatedAt(msg.ChatID, msg.UpdatedAt)
+
 	c.broadcastMessageChange(&msg, WSTypeMessageCreate)
 
 	c.writeResponse(w, http.StatusCreated, msg)
@@ -836,6 +840,8 @@ func (c *apiController) updateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c.store.ChatRepo.UpdateUpdatedAt(msg.ChatID, msg.UpdatedAt)
+
 	c.broadcastMessageChange(&msg, WSTypeMessageUpdate)
 
 	c.writeResponse(w, http.StatusOK, msg)
@@ -883,6 +889,9 @@ func (c *apiController) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		c.writeDefaultErrorResponse(w, http.StatusInternalServerError)
 		return
 	}
+
+	c.store.ChatRepo.UpdateUpdatedAt(msg.ChatID, nil)
+
 
 	c.broadcastMessageChange(&msg, WSTypeMessageDelete)
 

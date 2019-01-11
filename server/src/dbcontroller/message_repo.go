@@ -18,6 +18,7 @@ func (r *MessageRepo) Create(message *model.Message) error {
 
 	now := time.Now()
 	message.CreatedAt = &now
+	message.UpdatedAt = &now
 
 	var err error
 	message.ID, err = r.GetValidID(r)
@@ -41,6 +42,8 @@ func (r *MessageRepo) Update(message *model.Message) error {
 		return err
 	}
 
+	now := time.Now()
+	oldMsg.UpdatedAt = &now
 	oldMsg.Message = message.Message
 
 	*message = oldMsg

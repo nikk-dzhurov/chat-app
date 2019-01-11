@@ -48,6 +48,7 @@ func NewStore() (*Store, error) {
 	db.SingularTable(true)
 	db.DB().SetMaxOpenConns(10)
 	db.Callback().Create().Remove("gorm:update_time_stamp")
+	db.Callback().Update().Remove("gorm:update_time_stamp")
 
 	idGenerator := NewIDGenerator(-1)
 	hasher := NewHasher(-1)

@@ -28,6 +28,7 @@ func (r *ChatUserRepo) Create(chatUser *model.ChatUser) error {
 
 	now := time.Now()
 	chatUser.CreatedAt = &now
+	chatUser.UpdatedAt = &now
 
 	return r.db.Create(chatUser).Error
 }

@@ -111,9 +111,15 @@ class Chat extends React.Component {
 		}
 	}
 
-	scrollToEnd() {
+	scrollToEnd(instant = false) {
 		if (this.messagesEnd.current) {
-			this.messagesEnd.current.scrollIntoView({behavior: 'smooth'});
+			let opts = {block: 'end', behavior: 'smooth'};
+			if (instant) {
+				console.log('asd')
+				opts.behavior = 'instant';
+			}
+
+			this.messagesEnd.current.scrollIntoView(opts);
 		}
 	}
 
@@ -276,19 +282,19 @@ class Chat extends React.Component {
 					messagesMap: newMap,
 				});
 
-				this.scrollToEnd();
+				this.scrollToEnd(true);
 			})
 			.catch(err => {
 				console.log(err);
 
-				let newMap = {...this.state.messagesMap};
-				newMap[chatId] = [];
-				this.setState({
-					messagesLoading: false,
-					messagesMap: newMap,
-				});
-
-				this.scrollToEnd();
+				// let newMap = {...this.state.messagesMap};
+				// newMap[chatId] = [];
+				// this.setState({
+				// 	messagesLoading: false,
+				// 	messagesMap: newMap,
+				// });
+				//
+				// this.scrollToEnd(true);
 			});
 	}
 
@@ -518,7 +524,7 @@ class Chat extends React.Component {
 			<div id='messages' className={classes.messageListContainer}>
 				<h2 style={{textAlign: 'center'}}>Messages</h2>
 				<Divider />
-				{this.state.messagesLoading || true ?
+				{this.state.messagesLoading && messages.length === 0 ?
 					<LoadingIndication />
 					:
 					<div className={classes.messageList}>
@@ -531,6 +537,11 @@ class Chat extends React.Component {
 								isCurrentUser={currentUser.id === m.userId}
 							/>
 						))}
+						{this.state.messagesLoading &&
+							<div style={{minHeight: 80, display: 'flex'}}>
+								<LoadingIndication />
+							</div>
+						}
 						<div ref={this.messagesEnd} />
 					</div>
 				}

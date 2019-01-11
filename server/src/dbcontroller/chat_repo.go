@@ -18,6 +18,7 @@ func (r *ChatRepo) Create(chat *model.Chat) error {
 
 	now := time.Now()
 	chat.CreatedAt = &now
+	chat.UpdatedAt = &now
 
 	var err error
 	chat.ID, err = r.GetValidID(r)
@@ -41,10 +42,34 @@ func (r *ChatRepo) Update(chat *model.Chat) error {
 		return err
 	}
 
+	now := time.Now()
+	oldChat.UpdatedAt = &now
 	oldChat.Title = chat.Title
 
 	*chat = oldChat
 	err = r.db.Save(chat).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *ChatRepo) UpdateUpdatedAt(chatID string, date *time.Time) error {
+
+	if date == nil {
+		now := time.Now()
+		date = &now
+	}
+
+	chat := model.Chat{}
+	err := r.Get(chatID, &chat)
+	if err != nil {
+		return err
+	}
+
+	chat.UpdatedAt = date
+	err = r.db.Save(&chat).Error
 	if err != nil {
 		return err
 	}
