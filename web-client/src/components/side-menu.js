@@ -10,8 +10,8 @@ import List from '@material-ui/core/List';
 import ListItemText from '@material-ui/core/ListItemText';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 
-import UserAvatar from './user-avatar';
-import Icon from './icon';
+import UserAvatar from '../atoms/user-avatar';
+import Icon from '../atoms/icon';
 import {getUserName} from '../utils';
 
 const styles = theme => ({

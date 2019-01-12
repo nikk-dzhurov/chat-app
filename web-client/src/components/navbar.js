@@ -9,8 +9,8 @@ import Toolbar from '@material-ui/core/Toolbar';
 import IconButton from '@material-ui/core/IconButton';
 import Typography from '@material-ui/core/Typography';
 
-import Icon from './icon';
-import UserAvatar from './user-avatar';
+import Icon from '../atoms/icon';
+import UserAvatar from '../atoms/user-avatar';
 import {getUserName} from '../utils';
 
 const styles = theme => ({

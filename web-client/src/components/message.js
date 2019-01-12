@@ -5,7 +5,7 @@ import dateformat from 'dateformat';
 import Typography from '@material-ui/core/Typography';
 import {withStyles} from '@material-ui/core/styles';
 
-import UserAvatar from '../components/user-avatar';
+import UserAvatar from '../atoms/user-avatar';
 
 const styles = theme => ({
 	container: {

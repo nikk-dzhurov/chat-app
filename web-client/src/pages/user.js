@@ -5,7 +5,7 @@ import TextField from '@material-ui/core/TextField';
 import {withStyles} from '@material-ui/core/styles';
 
 import container from '../container';
-import UserAvatar from '../components/user-avatar';
+import UserAvatar from '../atoms/user-avatar';
 
 const allowedImageFileTypes = ['image/jpeg', 'image/png'];
 
@@ -51,6 +51,7 @@ class User extends React.Component {
 		super(props);
 
 		this.state = {
+			saved: false,
 			fullName: context.currentUser.fullName || '',
 			fullNameError: false,
 		};
@@ -133,6 +134,7 @@ class User extends React.Component {
 			.then(user => {
 				if (user) {
 					this.props.updateCurrentUserData(user);
+					this.setState({saved: true});
 				}
 			})
 			.catch(console.error);
@@ -140,8 +142,11 @@ class User extends React.Component {
 
 	onChange(errKey) {
 		return () => {
-			if (this.state[errKey]) {
-				this.setState({[errKey]: false});
+			if (this.state[errKey] || this.state.saved) {
+				this.setState({
+					[errKey]: false,
+					saved: false,
+				});
 			}
 		};
 	}
@@ -174,6 +179,9 @@ class User extends React.Component {
 						/>
 					</div>
 					<div className={classes.inputFields}>
+						{this.state.saved &&
+							<p style={{color: 'limegreen', textAlign: 'center'}}>Profile data saved!</p>
+						}
 						<TextField
 							fullWidth
 							disabled

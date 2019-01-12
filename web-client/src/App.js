@@ -8,7 +8,7 @@ import UserPage from './pages/user';
 import LoginPage from './pages/login';
 
 import container from 'container';
-import LoadingIndication from './components/loading-indication';
+import LoadingIndication from './atoms/loading-indication';
 import SideMenu from './components/side-menu';
 import Navbar from './components/navbar';
 
@@ -110,15 +110,17 @@ export default class App extends React.Component {
 		this.setCurrentUser(null);
 	}
 
-	setCurrentUser(user) {
+	setCurrentUser(user, isInitial = true) {
 		if (user) {
 			window.localStorage.setItem('user', JSON.stringify(user));
 			this.setState({
 				currentUser: user,
 			});
 
-			this.wsClient.openConnection();
-			this.loadUserData();
+			if (isInitial) {
+				this.wsClient.openConnection();
+				this.loadUserData();
+			}
 		} else {
 			window.localStorage.removeItem('user');
 			this.setState({
@@ -222,7 +224,7 @@ export default class App extends React.Component {
 		if (user && user.id === userData.id) {
 			user = {...user, ...userData};
 
-			this.setCurrentUser(user);
+			this.setCurrentUser(user, false);
 		}
 	}
 

@@ -16,9 +16,9 @@ import IconButton from '@material-ui/core/IconButton';
 import {withStyles} from '@material-ui/core/styles';
 
 import container from '../container';
-import LoadingIndication from '../components/loading-indication';
-import UserAvatar from '../components/user-avatar';
-import Icon from '../components/icon';
+import LoadingIndication from '../atoms/loading-indication';
+import UserAvatar from '../atoms/user-avatar';
+import Icon from '../atoms/icon';
 import Message from '../components/message';
 import {getUserName} from '../utils';
 

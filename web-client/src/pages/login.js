@@ -9,7 +9,7 @@ import Typography from '@material-ui/core/Typography';
 import {withStyles} from '@material-ui/core/styles';
 
 import container from '../container';
-import LoadingIndication from '../components/loading-indication';
+import LoadingIndication from '../atoms/loading-indication';
 
 const styles = theme => ({
 	container: {
