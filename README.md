@@ -6,6 +6,9 @@
 -- runtime - it contains project's configuration and basic setup
 -- server - it contains the server side of the application
 -- web-client - it contains the client side of the application
+- Setup and run project
+-- cd runtime
+-- make up logs
 
 ## Server Tasks:
 
@@ -31,8 +34,8 @@
 -- [x] (GET) List chats
 
 - [x] WebSocket handler
--- [] Dispatch user changes
--- [] Dispatch chat changes
+-- [x] Dispatch user changes
+-- [x] Dispatch chat changes
 -- [x] Dispatch message changes
 
 ## Client Tasks:
@@ -69,3 +72,5 @@
 -- [] Leave group chat
 -- [] Add user to chat
 -- [] Remove user from chat
+- [] Order chats list by last change
+- [] Test application with large lists for GUI/serverside bugs

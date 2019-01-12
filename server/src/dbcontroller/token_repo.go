@@ -35,7 +35,7 @@ func (r *TokenRepo) GetByUserID(userID string) (*model.AccessToken, error) {
 func (r *TokenRepo) Create(accessToken *model.AccessToken) error {
 	token := r.idGenerator.generateN(64)
 
-	expiresAt := time.Now().Add(time.Minute * 30)
+	expiresAt := time.Now().Add(time.Minute * 60)
 
 	accessToken.Token = token
 	accessToken.ExpiresAt = &expiresAt
