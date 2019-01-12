@@ -12,6 +12,7 @@ import ListItemIcon from '@material-ui/core/ListItemIcon';
 
 import UserAvatar from './user-avatar';
 import Icon from './icon';
+import {getUserName} from '../utils';
 
 const styles = theme => ({
 	container: {
@@ -45,7 +46,7 @@ class SideMenu extends React.Component {
 					<div className={classes.userContainer}>
 						<UserAvatar userId={currentUser.id} size={120} />
 						<Typography variant="h6" color="inherit" style={{marginTop: 10}}>
-							{currentUser.fullName || currentUser.username}
+							{getUserName(currentUser)}
 						</Typography>
 					</div>
 					<Divider />

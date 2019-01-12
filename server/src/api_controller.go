@@ -36,9 +36,9 @@ const (
 	WSTypeChatUpdate = "chat_update"
 	WSTypeChatDelete = "chat_delete"
 
-	WSTypeUserCreate = "user_create"
-	WSTypeUserUpdate = "user_update"
-	WSTypeUserDelete = "user_delete"
+	WSTypeUserCreate       = "user_create"
+	WSTypeUserUpdate       = "user_update"
+	WSTypeUserDelete       = "user_delete"
 	WSTypeUserAvatarUpdate = "user_avatar_update"
 	WSTypeUserStatusChange = "user_status_change"
 )
@@ -71,6 +71,11 @@ type WSMessageData struct {
 type WSUserData struct {
 	Type   string `json:"type"`
 	UserID string `json:"userId"`
+}
+
+type UserStatus struct {
+	UserID string `json:"userId"`
+	Online bool   `json:"online"`
 }
 
 type WSChatData struct {
@@ -143,7 +148,6 @@ func (c *apiController) wsHandler(w http.ResponseWriter, r *http.Request) {
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
 	go client.writePump()
-	// go client.readPump()
 }
 
 func (c *apiController) register(w http.ResponseWriter, r *http.Request) {
@@ -402,6 +406,18 @@ func (c *apiController) listUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.writeResponse(w, http.StatusOK, publicUsers)
+}
+
+func (c *apiController) listActiveUserIDs(w http.ResponseWriter, r *http.Request) {
+	_, err := c.authenticate(r)
+	if err != nil {
+		c.writeDefaultErrorResponse(w, http.StatusUnauthorized)
+		return
+	}
+
+	c.writeResponse(w, http.StatusOK, map[string]interface{}{
+		"activeUserIds": c.wsHub.listActiveUserIDs(),
+	})
 }
 
 func (c *apiController) getUser(w http.ResponseWriter, r *http.Request) {
@@ -891,7 +907,6 @@ func (c *apiController) deleteMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.store.ChatRepo.UpdateUpdatedAt(msg.ChatID, nil)
-
 
 	c.broadcastMessageChange(&msg, WSTypeMessageDelete)
 

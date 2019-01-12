@@ -40,7 +40,9 @@ export default class WsClient {
 		if (userData) {
 			try {
 				let user = JSON.parse(userData);
-				token = user.accessToken;
+				if (new Date() < new Date(user.accessTokenExpiresAt)) {
+					token = user.accessToken;
+				}
 			} catch (ex) {
 				console.error(ex);
 			}
@@ -96,7 +98,7 @@ export default class WsClient {
 	handleClose(e) {
 		this.connection = null;
 		this.tryToReconnect();
-		console.log('WS connection is closed');
+		console.log('WS connection is closed', e);
 	}
 
 	tryToReconnect() {
@@ -117,7 +119,7 @@ export default class WsClient {
 
 		let accessToken = this.getToken();
 		if (!accessToken) {
-			console.log('missing accessToken');
+			console.log('missing/expired accessToken');
 
 			return;
 		}

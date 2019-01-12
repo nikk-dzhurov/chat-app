@@ -50,14 +50,7 @@ func (r *UserRepo) UpdateUpdatedAt(userID string, date *time.Time) error {
 	}
 
 	user := model.User{}
-	err := r.Get(userID, &user)
-	if err != nil {
-		return err
-	}
-
-	user.UpdatedAt = date
-
-	err = r.db.Save(&user).Error
+	err := r.db.Model(&user).Where("id = ?", userID).Update("updated_at", date).Error
 	if err != nil {
 		return err
 	}

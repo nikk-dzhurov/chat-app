@@ -5,6 +5,15 @@ export default class UserClient extends RestClient {
 		return this.doRequest('GET', 'users', null, true);
 	}
 
+	listActiveUserIds() {
+		return this.doRequest('GET', 'users/active', null, true)
+			.catch(err => {
+				console.log('Failed to list active users ids: ', err);
+
+				return {};
+			});
+	}
+
 	login(data) {
 		return this.doRequest('POST', 'login', data);
 	}

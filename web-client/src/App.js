@@ -69,6 +69,10 @@ export default class App extends React.Component {
 		if (data) {
 			try {
 				user = JSON.parse(data);
+				if (user && new Date() >= new Date(user.accessTokenExpiresAt)) {
+					user = null;
+					window.localStorage.removeItem('user');
+				}
 			} catch (ex) {
 				console.error('invalid user data');
 			}
@@ -126,6 +130,10 @@ export default class App extends React.Component {
 	}
 
 	handleUserChage(msg) {
+		if (!msg || !msg.type) {
+			return;
+		}
+
 		switch (msg.type) {
 			case 'user_create':
 			case 'user_update':
@@ -167,13 +175,17 @@ export default class App extends React.Component {
 				}
 
 				break;
+			case 'user_status_change':
+				this.updateUsersStatus();
+
+				break;
 			default:
 				console.log('Unrecognized message type:', msg.type);
 		}
 	}
 
 	logout() {
-		this.setState({...this.defaultState});
+		this.setState({...this.defaultState, loading: false});
 		this.userClient.logout()
 			.then(() => this.setCurrentUser(null))
 			.catch(err => {
@@ -181,6 +193,18 @@ export default class App extends React.Component {
 
 				this.setCurrentUser(null);
 			});
+	}
+
+	async updateUsersStatus() {
+		let {activeUserIds} = await this.userClient.listActiveUserIds();
+		if (activeUserIds) {
+			let usersMap = {...this.state.usersMap};
+			for (let userId in usersMap) {
+				usersMap[userId].active = activeUserIds.indexOf(userId) !== -1;
+			}
+
+			this.setState({usersMap});
+		}
 	}
 
 	updateCurrentUserData(userData) {
@@ -225,7 +249,7 @@ export default class App extends React.Component {
 		this.setState({
 			usersMap,
 			loading: false,
-		});
+		}, () => this.updateUsersStatus());
 	}
 
 	toggleDrawer() {

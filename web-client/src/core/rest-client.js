@@ -57,14 +57,19 @@ export default class RestClient {
 					return response.blob();
 				}
 
-				console.log('err status', response.status);
-
 				if (response.status === 401) {
 					return this.handleUnauthorized();
 				}
 
 				return response.json()
-					.then(Promise.reject);
+					.then(err => Promise.reject(err))
+					.catch(err => {
+						if (err && err.message) {
+							return Promise.reject(err);
+						}
+
+						return Promise.reject({message: err, statusCode: response.status});
+					});
 			})
 			.catch(err => {
 				if (err && err.message) {
@@ -111,14 +116,19 @@ export default class RestClient {
 					return response.json();
 				}
 
-				console.log('err status', response.status);
-
 				if (response.status === 401) {
 					return this.handleUnauthorized();
 				}
 
 				return response.json()
-					.then(Promise.reject);
+					.then(err => Promise.reject(err))
+					.catch(err => {
+						if (err && err.message) {
+							return Promise.reject(err);
+						}
+
+						return Promise.reject({message: err, statusCode: response.status});
+					});
 			})
 			.catch(err => {
 				if (err && err.message) {

@@ -63,13 +63,7 @@ func (r *ChatRepo) UpdateUpdatedAt(chatID string, date *time.Time) error {
 	}
 
 	chat := model.Chat{}
-	err := r.Get(chatID, &chat)
-	if err != nil {
-		return err
-	}
-
-	chat.UpdatedAt = date
-	err = r.db.Save(&chat).Error
+	err := r.db.Model(&chat).Where("id = ?", chatID).Update("updated_at", date).Error
 	if err != nil {
 		return err
 	}

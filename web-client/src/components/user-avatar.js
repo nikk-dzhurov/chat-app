@@ -6,7 +6,7 @@ import Icon from './icon';
 import ArrowTooltip from './arrow-tooltip';
 import {getUserName} from '../utils';
 
-const UserAvatar = ({userId, className = undefined, size = 50, withTooltip = false}, {usersMap}) => {
+const UserAvatar = ({userId, showActiveStatus = false, className = undefined, size = 50, withTooltip = false}, {usersMap}) => {
 	let url = null;
 	let user = usersMap[userId];
 	if (user && user.blobUrl) {
@@ -15,7 +15,7 @@ const UserAvatar = ({userId, className = undefined, size = 50, withTooltip = fal
 
 	let avatar;
 	if (url) {
-		avatar = <Avatar className={className} style={{width: size, height: size}} alt='avatar' src={url} />;
+		avatar = <Avatar style={{width: size, height: size}} alt='avatar' src={url} />;
 	} else {
 		let fontSize = 'default';
 		if (size > 50) {
@@ -25,11 +25,30 @@ const UserAvatar = ({userId, className = undefined, size = 50, withTooltip = fal
 		}
 
 		avatar = (
-			<Avatar style={{width: size, height: size}} className={className} alt='avatar'>
+			<Avatar style={{width: size, height: size}} alt='avatar'>
 				<Icon name='person' fontSize={fontSize} />
 			</Avatar>
 		);
 	}
+
+	avatar = (
+		<div className={className} style={{width: size, height: size}}>
+			{avatar}
+			{showActiveStatus && user && user.active &&
+				<span style={{
+					height: size / 5,
+					width: size / 5,
+					backgroundColor: 'limegreen',
+					borderRadius: '50%',
+					borderColor: '#AFAFAF',
+					borderWidth: 1,
+					position: 'absolute',
+					top: size,
+					left: size,
+				}} />
+			}
+		</div>
+	);
 
 	if (withTooltip && user) {
 		return (

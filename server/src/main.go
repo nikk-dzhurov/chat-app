@@ -59,6 +59,7 @@ func main() {
 	r.HandleFunc("/register", api.register).Methods(http.MethodPost)
 	r.HandleFunc("/logout", api.logout).Methods(http.MethodPost)
 	r.HandleFunc("/users", api.listUsers).Methods(http.MethodGet)
+	r.HandleFunc("/users/active", api.listActiveUserIDs).Methods(http.MethodGet)
 	r.HandleFunc("/user/{userID}/avatar", api.getAvatar).Methods(http.MethodGet)
 	r.HandleFunc("/user/{userID}/avatar", api.uploadAvatar).Methods(http.MethodPost)
 	r.HandleFunc("/user/{userID}", api.getUser).Methods(http.MethodGet)

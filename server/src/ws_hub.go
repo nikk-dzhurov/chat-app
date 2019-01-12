@@ -13,13 +13,10 @@ import (
 
 const (
 	// Time allowed to write a message to the peer.
-	writeWait = 10 * time.Second
-
-	// Time allowed to read the next pong message from the peer.
-	pongWait = 60 * time.Second
+	writeWait = 2 * time.Second
 
 	// Send pings to peer with this period. Must be less than pongWait.
-	pingPeriod = (pongWait * 9) / 10
+	pingPeriod = 2 * time.Second
 
 	// Maximum message size allowed from peer.
 	maxMessageSize = 512
@@ -59,9 +56,9 @@ func newWsHub() *WSHub {
 	}
 
 	return &WSHub{
-		broadcast:  make(chan *BroadcastData),
-		register:   make(chan *WsClient),
-		unregister: make(chan *WsClient),
+		broadcast:  make(chan *BroadcastData, 1000),
+		register:   make(chan *WsClient, 100),
+		unregister: make(chan *WsClient, 100),
 		clients:    make(map[string][]*WsClient),
 		upgrader:   upgrader,
 	}
@@ -72,21 +69,37 @@ func (h *WSHub) run() {
 		select {
 		case client := <-h.register:
 			log.Printf("%+v\n", len(h.clients[client.userID]))
+			prevLen := 0
 			if _, ok := h.clients[client.userID]; !ok {
 				h.clients[client.userID] = []*WsClient{client}
 			} else {
+				prevLen = len(h.clients[client.userID])
 				h.clients[client.userID] = append(h.clients[client.userID], client)
+			}
+
+			if prevLen == 0 {
+				h.broadcastDataToAll(map[string]string{
+					"type": WSTypeUserStatusChange,
+				})
 			}
 
 			client.send <- []byte("connected:" + client.userID)
 		case client := <-h.unregister:
-			if userClients, ok := h.clients[client.userID]; ok {
-				for i := range userClients {
-					if userClients[i] == client {
-						userClients = append(userClients[:i], userClients[i+1:]...)
+			if _, ok := h.clients[client.userID]; ok {
+				prevLen := len(h.clients[client.userID])
+				for i := range h.clients[client.userID] {
+					if h.clients[client.userID][i] == client {
+						h.clients[client.userID] = append(h.clients[client.userID][:i], h.clients[client.userID][i+1:]...)
 						break
 					}
 				}
+
+				if prevLen > 0 && len(h.clients[client.userID]) == 0 {
+					h.broadcastDataToAll(map[string]string{
+						"type": WSTypeUserStatusChange,
+					})
+				}
+
 				close(client.send)
 			}
 		case data := <-h.broadcast:
@@ -117,6 +130,17 @@ func (h *WSHub) run() {
 			}
 		}
 	}
+}
+
+func (h *WSHub) listActiveUserIDs() []string {
+	result := []string{}
+	for userID := range h.clients {
+		if len(h.clients[userID]) > 0 {
+			result = append(result, userID)
+		}
+	}
+
+	return result
 }
 
 func (h *WSHub) broadcastData(userIDs []string, data interface{}) {
@@ -170,41 +194,11 @@ type WsClient struct {
 	send chan []byte
 }
 
-// readPump pumps messages from the websocket connection to the hub.
-//
-// The application runs readPump in a per-connection goroutine. The application
-// ensures that there is at most one reader on a connection by executing all
-// reads from this goroutine.
-// func (c *WsClient) readPump() {
-// 	defer func() {
-// 		c.hub.unregister <- c
-// 		c.conn.Close()
-// 	}()
-// 	c.conn.SetReadLimit(maxMessageSize)
-// 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
-// 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
-// 	for {
-// 		_, message, err := c.conn.ReadMessage()
-// 		if err != nil {
-// 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-// 				log.Printf("error: %v", err)
-// 			}
-// 			break
-// 		}
-// 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-// 		c.hub.broadcast <- message
-// 	}
-// }
-
-// writePump pumps messages from the hub to the websocket connection.
-//
-// A goroutine running writePump is started for each connection. The
-// application ensures that there is at most one writer to a connection by
-// executing all writes from this goroutine.
 func (c *WsClient) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
+		c.hub.unregister <- c
 		c.conn.Close()
 	}()
 	for {

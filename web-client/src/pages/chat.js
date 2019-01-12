@@ -11,6 +11,7 @@ import Dialog from '@material-ui/core/Dialog';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import InputAdornment from '@material-ui/core/InputAdornment';
 import TextField from '@material-ui/core/TextField';
+import Typography from '@material-ui/core/Typography';
 import IconButton from '@material-ui/core/IconButton';
 import {withStyles} from '@material-ui/core/styles';
 
@@ -35,6 +36,8 @@ const styles = theme => ({
 	},
 	chatListContainer: {
 		flex: 2,
+		minWidth: 200,
+		maxWidth: 320,
 		borderRight: '1px solid ' + theme.palette.divider,
 		flexDirection: 'column',
 	},
@@ -49,6 +52,21 @@ const styles = theme => ({
 		flexDirection: 'column',
 		paddingTop: 10,
 		overflowY: 'scroll',
+	},
+	sectionHeader: {
+		display: 'flex',
+		flexDirection: 'column',
+		justifyContent: 'center',
+		minHeight: 60,
+		alignItems: 'center',
+		borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
+		padding: 8,
+	},
+	subtitleActive: {
+		color: 'limegreen',
+	},
+	subtitle: {
+		color: 'grey',
 	},
 });
 
@@ -76,10 +94,12 @@ class Chat extends React.Component {
 
 		this.sendMessage = this.sendMessage.bind(this);
 		this.handleKeyUp = this.handleKeyUp.bind(this);
+		this.handleChatChange = this.handleChatChange.bind(this);
 		this.handleMessageChange = this.handleMessageChange.bind(this);
 	}
 
 	componentDidMount() {
+		this.wsClient.addChangeListener('chat', this.handleChatChange);
 		this.wsClient.addChangeListener('message', this.handleMessageChange);
 		this.loadInitialData();
 	}
@@ -101,6 +121,7 @@ class Chat extends React.Component {
 			this.inputRef.current.removeEventListener('keyup', this.handleKeyUp);
 		}
 
+		this.wsClient.removeChangeListener('chat', this.handleChatChange);
 		this.wsClient.removeChangeListener('message', this.handleMessageChange);
 	}
 
@@ -115,8 +136,7 @@ class Chat extends React.Component {
 		if (this.messagesEnd.current) {
 			let opts = {block: 'end', behavior: 'smooth'};
 			if (instant) {
-				console.log('asd')
-				opts.behavior = 'instant';
+				// opts.behavior = 'instant';
 			}
 
 			this.messagesEnd.current.scrollIntoView(opts);
@@ -124,12 +144,13 @@ class Chat extends React.Component {
 	}
 
 	handleMessageChange(msg) {
+		if (!msg || !msg.type || !msg.messageId || !msg.chatId) {
+			return;
+		}
+
 		switch (msg.type) {
 			case 'message_create':
 			case 'message_update':
-				if (!msg.messageId || !msg.chatId) {
-					return;
-				}
 
 				this.messageClient.get(msg.chatId, msg.messageId)
 					.then(message => {
@@ -150,6 +171,49 @@ class Chat extends React.Component {
 				let messagesMap = this.removeMessage(msg.chatId, msg.messageId);
 				if (messagesMap !== this.state.messagesMap) {
 					this.setState({messagesMap});
+				}
+
+				break;
+			default:
+				console.log('Unrecognized message type:', msg.type);
+		}
+	}
+
+	handleChatChange(msg) {
+		if (!msg || !msg.type || !msg.chatId) {
+			return;
+		}
+
+		switch (msg.type) {
+			case 'chat_create':
+			case 'chat_update':
+				this.chatClient.get(msg.chatId)
+					.then(chat => {
+						if (!chat) {
+							return;
+						}
+
+						let chats = this.addOrReplaceById(this.state.chats, chat);
+						this.setState({chats});
+					})
+					.catch(console.error);
+
+				break;
+			case 'chat_delete':
+				let idx = this.state.chats.findIndex(c => c.id === msg.chatId);
+				if (idx !== -1) {
+					let chats = [...this.state.chats];
+					chats.splice(idx, 1);
+					let messagesMap = this.state.messagesMap;
+					if (messagesMap[msg.chatId]) {
+						messagesMap = {...messagesMap};
+						delete messagesMap[msg.chatId];
+					}
+
+					this.setState({
+						chats,
+						messagesMap,
+					});
 				}
 
 				break;
@@ -405,7 +469,7 @@ class Chat extends React.Component {
 						alignItems="flex-start"
 						onClick={() => this.createOrOpenChat(u.id)}
 					>
-						<UserAvatar userId={u.id} />
+						<UserAvatar showActiveStatus userId={u.id} />
 						<ListItemText
 							primary={getUserName(u)}
 							secondary={`Joined ${dateformat(u.createdAt, 'dd.mm.yyyy')}`}
@@ -422,7 +486,7 @@ class Chat extends React.Component {
 			userId = chat.directUserId;
 		}
 
-		return <UserAvatar userId={userId} />;
+		return <UserAvatar showActiveStatus userId={userId} />;
 	}
 
 	renderChatList() {
@@ -431,9 +495,12 @@ class Chat extends React.Component {
 
 		return (
 			<div className={classes.chatListContainer}>
-				<h2 style={{textAlign: 'center'}}>Chat List</h2>
-				<Divider />
-				<List style={{minWidth: 280}}>
+				<div className={classes.sectionHeader}>
+					<Typography align='center' variant="h5" noWrap>
+						Chat List
+					</Typography>
+				</div>
+				<List>
 					<ListItem
 						button
 						key={0}
@@ -471,6 +538,12 @@ class Chat extends React.Component {
 			return chat.title;
 		}
 
+		let user = this.getChatUser(chat);
+
+		return getUserName(user);
+	}
+
+	getChatUser(chat) {
 		const {usersMap, currentUser} = this.context;
 		let userId = chat.creatorId;
 		if (userId === currentUser.id) {
@@ -478,10 +551,10 @@ class Chat extends React.Component {
 		}
 
 		if (!userId) {
-			return 'Anonymous';
+			return null;
 		}
 
-		return getUserName(usersMap[userId]);
+		return usersMap[userId] || null;
 	}
 
 	shouldAddDateSeparator(prev, curr) {
@@ -516,14 +589,29 @@ class Chat extends React.Component {
 		const {currentUser} = this.context;
 		const {currentChatId, messagesMap} = this.state;
 		let messages = [];
+		let currentChat = null;
 		if (currentChatId) {
 			messages = messagesMap[currentChatId] || [];
+			currentChat = this.state.chats.find(({id}) => id === currentChatId);
+		}
+
+		let chatUser = null;
+		if (currentChat) {
+			chatUser = this.getChatUser(currentChat);
 		}
 
 		return (
 			<div id='messages' className={classes.messageListContainer}>
-				<h2 style={{textAlign: 'center'}}>Messages</h2>
-				<Divider />
+				<div className={classes.sectionHeader}>
+					<Typography align='center' variant="h5" noWrap>
+						{currentChat ? this.getChatTitle(currentChat) : 'Messages'}
+					</Typography>
+					{!!chatUser &&
+						<Typography align='center' variant="body2" className={chatUser.active ? classes.subtitleActive : classes.subtitle} noWrap>
+							{chatUser.active ? 'Online' : 'Offline'}
+						</Typography>
+					}
+				</div>
 				{this.state.messagesLoading && messages.length === 0 ?
 					<LoadingIndication />
 					:

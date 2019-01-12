@@ -5,6 +5,10 @@ export default class ChatClient extends RestClient {
 		return this.doRequest('GET', 'chats', null, true);
 	}
 
+	get(chatId) {
+		return this.doRequest('GET', `chat/${chatId}`, null, true);
+	}
+
 	create(data) {
 		return this.doRequest('POST', 'chat', data, true);
 	}

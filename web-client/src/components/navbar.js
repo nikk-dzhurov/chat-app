@@ -11,8 +11,17 @@ import Typography from '@material-ui/core/Typography';
 
 import Icon from './icon';
 import UserAvatar from './user-avatar';
+import {getUserName} from '../utils';
 
 const styles = theme => ({
+	appBarRoot: {
+		height: 64,
+	},
+	toolbar: {
+		height: 64,
+		paddingLeft: 16,
+		paddingRight: 16,
+	},
 	logoButton: {
 		paddingLeft: 16,
 		paddingRight: 16,
@@ -23,9 +32,9 @@ const styles = theme => ({
 		alignItems: 'center',
 		justifyContent: 'flex-end',
 		flexDirection: 'row',
-		marginRight: 16,
 	},
 	userName: {
+		textTransform: 'none',
 		marginRight: 16,
 	},
 });
@@ -44,8 +53,8 @@ class Navbar extends React.Component {
 		const {currentUser} = this.context;
 
 		return (
-			<AppBar position="static">
-				<Toolbar>
+			<AppBar position="static" classes={{root: classes.appBarRoot}}>
+				<Toolbar classes={{root: classes.toolbar}}>
 					{currentUser &&
 						<IconButton color="inherit" onClick={this.props.toggleDrawer}>
 							<Icon name='menu' />
@@ -60,7 +69,7 @@ class Navbar extends React.Component {
 						<div className={classes.userData}>
 							<Button color="inherit" onClick={() => this.navigateTo('/profile')}>
 								<Typography variant="h6" color="inherit" className={classes.userName} noWrap>
-									{currentUser.fullName || currentUser.username}
+									{getUserName(currentUser)}
 								</Typography>
 								<UserAvatar userId={currentUser.id} size={40} />
 							</Button>
