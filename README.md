@@ -30,7 +30,7 @@
 -- [x] (POST) Create chat
 -- [x] (GET) Get chat
 -- [x] (PUT) Update chat
--- [] (DELETE) Delete chat - optional
+-- [x] (DELETE) Delete chat
 -- [x] (GET) List chats
 
 - [x] WebSocket handler
