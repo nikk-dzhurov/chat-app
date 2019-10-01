@@ -35,11 +35,11 @@ const styles = theme => ({
 		alignSelf: 'flex-end',
 	},
 	textField: {
-		marginLeft: theme.spacing.unit,
-		marginRight: theme.spacing.unit,
+		marginLeft: theme.spacing(1),
+		marginRight: theme.spacing(1),
 	},
 	button: {
-		margin: theme.spacing.unit,
+		margin: theme.spacing(1),
 	},
 });
 
@@ -210,7 +210,6 @@ class Login extends React.Component {
 			<div className={classes.container}>
 				<div className={classes.innerContainer}>
 					<Tabs
-						fullWidth
 						centered
 						indicatorColor="primary"
 						textColor="primary"
